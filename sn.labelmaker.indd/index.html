@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+</head>
+<style>
+  .wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    flex-direction: column;
+    display: flex;
+    padding: 12px;
+  }
+</style>
+
+<body>
+  <div class="wrapper">
+    <p>Label Maker Plugin</p>
+    <button id="chooseJson">Choose JSON File</button>
+    <button id="reloadJson" style="display:none; margin-top: 8px;">Reload JSON</button>
+    <p id="jsonStatus">Status: unlinked</p>
+    <p id="datasetStatus">Dataset: not loaded</p>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

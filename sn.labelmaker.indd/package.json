@@ -1,0 +1,19 @@
+{
+  "name": "sn.labelmaker",
+  "version": "1.0.0",
+  "description": "InDesign UXP plugin for linking an InDesign document to a JSON label dataset and validating reload status.",
+  "main": "index.html",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/snicho99/label-maker.git"
+  },
+  "author": "Steve Nicholson",
+  "license": "MIT",
+  "files": [
+    "index.html",
+    "main.js",
+    "manifest.json",
+    "README.md",
+    "icons/**"
+  ]
+}
