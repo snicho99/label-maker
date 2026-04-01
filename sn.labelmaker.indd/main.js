@@ -1,8 +1,8 @@
 const { entrypoints } = require("uxp");
 const { app } = require("indesign");
 const fileManager = require("./fileManager");
-let panelInitialized = false;
-let afterActivateRegistered = false;
+const labelsTable = require("./labelsTable");
+let currentPanelNode = null;
 
 entrypoints.setup({
 
@@ -13,72 +13,135 @@ entrypoints.setup({
     showPanel: {
       async show({node} = {}) {
         console.log("Panel shown, node:", node);
-        if (!panelInitialized) {
-          const chooseButton = document.querySelector("#chooseJson");
-          if (chooseButton) {
-            chooseButton.addEventListener("click", async () => {
-              try {
-                await fileManager.chooseJsonFile();
-              } catch (err) {
-                console.error("Choose JSON error:", err);
-              } finally {
-                await updateStatus();
-              }
-            });
-          }
-
-          const reloadButton = document.querySelector("#reloadJson");
-          if (reloadButton) {
-            reloadButton.addEventListener("click", async () => {
-              try {
-                await fileManager.reloadJson();
-              } catch (err) {
-                console.error("Reload JSON error:", err);
-              } finally {
-                await updateStatus();
-              }
-            });
-          }
-
-          panelInitialized = true;
-        }
-
-        if (!afterActivateRegistered && app && app.eventListeners) {
-          try {
-            app.eventListeners.add("afterActivate", async () => {
-              console.log("Document activated, refreshing status");
-              await updateStatus();
-            });
-            afterActivateRegistered = true;
-          } catch (e) {
-            console.warn("Unable to add afterActivate listener:", e);
-          }
-        }
-
-        await updateStatus();
+        currentPanelNode = node || document;
+        initializeUi(currentPanelNode);
+        await updateStatus(currentPanelNode);
       }
     }
   }
 });
 
-showAlert = () => {
+function showAlert() {
     const dialog = app.dialogs.add();
     const col = dialog.dialogColumns.add();
     const colText = col.staticTexts.add();
     colText.staticLabel = "Congratulations! You just executed your first command.";
-    console.log("first text");  
     dialog.canCancel = false;
     dialog.show();
     dialog.destroy();
     return;
 }
 
+function initializeUi(rootNode) {
+    initializeTabs(rootNode);
 
+    const chooseButton = rootNode.querySelector("#chooseJson");
+    if (chooseButton) {
+        chooseButton.onclick = () => {
+            handleChooseJsonClick(rootNode).catch((error) => {
+                console.error("Choose JSON click handler failed:", error);
+            });
+        };
+    } else {
+        console.warn("Choose JSON button not found during UI init");
+    }
 
-async function updateStatus() {
-    const statusEl = document.querySelector("#jsonStatus");
-    const datasetStatusEl = document.querySelector("#datasetStatus");
-    const reloadButton = document.querySelector("#reloadJson");
+    const reloadButton = rootNode.querySelector("#reloadJson");
+    if (reloadButton) {
+        reloadButton.onclick = () => {
+            handleReloadJsonClick(rootNode).catch((error) => {
+                console.error("Reload JSON click handler failed:", error);
+            });
+        };
+    } else {
+        console.warn("Reload JSON button not found during UI init");
+    }
+}
+
+function initializeTabs(rootNode) {
+    const tabButtons = rootNode.querySelectorAll("[data-tab-target]");
+    tabButtons.forEach((button) => {
+        button.onclick = () => {
+            const target = button.getAttribute("data-tab-target");
+            activateTab(rootNode, target);
+        };
+    });
+
+    activateTab(rootNode, "manageTab");
+}
+
+function activateTab(rootNode, targetId) {
+    const tabButtons = rootNode.querySelectorAll("[data-tab-target]");
+    const tabPanels = rootNode.querySelectorAll("[data-tab-panel]");
+
+    tabButtons.forEach((button) => {
+        const isActive = button.getAttribute("data-tab-target") === targetId;
+        button.classList.toggle("active", isActive);
+    });
+
+    tabPanels.forEach((panel) => {
+        const isActive = panel.id === targetId;
+        panel.style.display = isActive ? "block" : "none";
+    });
+}
+
+function getElement(rootNode, selector) {
+    if (!rootNode || !rootNode.querySelector) {
+        return null;
+    }
+
+    return rootNode.querySelector(selector);
+}
+
+async function handleChooseJsonClick(rootNode) {
+    const statusEl = getElement(rootNode, "#jsonStatus");
+    const datasetStatusEl = getElement(rootNode, "#datasetStatus");
+    const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
+
+    if (statusEl) {
+        statusEl.textContent = "Status: choosing JSON file...";
+    }
+    if (datasetStatusEl) {
+        datasetStatusEl.textContent = "Dataset: waiting for file selection";
+    }
+    if (datasetSummaryEl) {
+        datasetSummaryEl.textContent = "Summary: waiting for file selection";
+    }
+
+    try {
+        await fileManager.chooseJsonFile();
+    } catch (err) {
+        console.error("Choose JSON error:", err);
+        if (statusEl) {
+            statusEl.textContent = "Status: choose failed";
+        }
+        if (datasetStatusEl) {
+            datasetStatusEl.textContent = `Dataset: error (${err.message})`;
+        }
+        if (datasetSummaryEl) {
+            datasetSummaryEl.textContent = "Summary: load failed";
+        }
+    } finally {
+        await updateStatus(rootNode);
+    }
+}
+
+async function handleReloadJsonClick(rootNode) {
+    try {
+        await fileManager.reloadJson();
+    } catch (err) {
+        console.error("Reload JSON error:", err);
+    } finally {
+        await updateStatus(rootNode);
+    }
+}
+
+async function updateStatus(rootNode = currentPanelNode || document) {
+    const statusEl = getElement(rootNode, "#jsonStatus");
+    const datasetStatusEl = getElement(rootNode, "#datasetStatus");
+    const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
+    const labelsTableBody = getElement(rootNode, "#labelsTableBody");
+    const reloadButton = getElement(rootNode, "#reloadJson");
 
     if (!statusEl) {
         console.warn("Status element not found");
@@ -90,6 +153,10 @@ async function updateStatus() {
         if (datasetStatusEl) {
             datasetStatusEl.textContent = fileManager.getDatasetStatusString();
         }
+        if (datasetSummaryEl) {
+            datasetSummaryEl.textContent = fileManager.getDatasetSummaryString();
+        }
+        labelsTable.renderLabelsTable(labelsTableBody, fileManager.getParsedDataset());
         const token = fileManager.getLinkedJsonToken();
 
         if (reloadButton) {
@@ -101,25 +168,12 @@ async function updateStatus() {
         if (datasetStatusEl) {
             datasetStatusEl.textContent = "Dataset: unavailable";
         }
+        if (datasetSummaryEl) {
+            datasetSummaryEl.textContent = "Summary: unavailable";
+        }
+        labelsTable.renderEmptyLabelsTable(labelsTableBody, "Unable to display labels.");
         if (reloadButton) {
             reloadButton.style.display = "inline-block";
-        }
-    }
-}
-
-async function reloadJson() {
-    try {
-        await fileManager.reloadJson();
-        await updateStatus();
-    } catch (e) {
-        console.error("reloadJson failed:", e);
-        const statusEl = document.querySelector("#jsonStatus");
-        const datasetStatusEl = document.querySelector("#datasetStatus");
-        if (statusEl) {
-            statusEl.textContent = "Status: error";
-        }
-        if (datasetStatusEl) {
-            datasetStatusEl.textContent = "Dataset: unavailable";
         }
     }
 }

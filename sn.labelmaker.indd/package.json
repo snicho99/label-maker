@@ -12,6 +12,7 @@
   "files": [
     "index.html",
     "main.js",
+    "labelsTable.js",
     "manifest.json",
     "README.md",
     "icons/**"

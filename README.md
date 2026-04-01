@@ -57,24 +57,36 @@ The InDesign plugin will continue to use the `jsonDataSource` document label key
 
 ### Phase 1: prototype hardening
 
-- persist a durable association to a chosen JSON file
-- validate and parse linked JSON on reload
-- improve panel status reporting
-- fix plugin metadata and icon wiring
-- document installation and baseline behavior clearly
+- [x] persist a durable association to a chosen JSON file
+- [~] validate and parse linked JSON on reload
+- [x] improve panel status reporting
+- [x] fix plugin metadata and icon wiring
+- [x] document installation and baseline behavior clearly
 
 ### Phase 2: schema-aware loading
 
-- introduce a formal label JSON schema
-- hold parsed dataset state in memory while the panel is open
-- surface invalid JSON, missing file, and schema errors in the panel
-- show basic dataset information such as label count and source
+- [x] introduce a formal label JSON schema
+- [x] hold parsed dataset state in memory while the panel is open
+- [x] surface invalid JSON, missing file, and schema errors in the panel
+- [x] show basic dataset information such as label count and source
+- [x] add a labels table view in the plugin UI
+- [~] stabilize the InDesign file picker / JSON linking flow
 
 ### Phase 3: first sync workflow
 
 - create a one-way "create missing labels from JSON" action
 - define stable label identity mapping between JSON and InDesign objects
 - reserve full update/delete behavior for a later milestone once layout and identity rules are locked
+
+## Roadmap tracking
+
+Use these markers in this README as work progresses:
+
+- `[x]` complete
+- `[~]` in progress / partially working
+- `[ ]` planned
+
+When significant work is requested that is not already represented on the roadmap, add it here before or alongside implementation so the README stays aligned with the real project.
 
 ## Repository workflow
 

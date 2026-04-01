@@ -10,6 +10,8 @@ const datasetState = {
   message: "Dataset: not loaded",
   labelCount: null,
   sourceToken: "",
+  summary: "Summary: none",
+  parsedData: null,
 };
 
 /**
@@ -74,11 +76,25 @@ function getDatasetStatusString() {
   return datasetState.message;
 }
 
+function getDatasetSummaryString() {
+  if (!app || !app.activeDocument) {
+    return "Summary: no active document";
+  }
+
+  return datasetState.summary;
+}
+
+function getParsedDataset() {
+  return datasetState.parsedData;
+}
+
 function _setDatasetState(state, message, labelCount = null, sourceToken = "") {
   datasetState.state = state;
   datasetState.message = message;
   datasetState.labelCount = labelCount;
   datasetState.sourceToken = sourceToken;
+  datasetState.summary = "Summary: none";
+  datasetState.parsedData = null;
 }
 
 function _validateJsonData(data) {
@@ -102,12 +118,19 @@ function _validateJsonData(data) {
     throw new Error("`labels` must be an array.");
   }
 
+  const sections = new Set();
+  const productionStatuses = new Set();
+
   data.labels.forEach((label, index) => {
     _validateLabel(label, index);
+    sections.add(label.meta.section);
+    productionStatuses.add(label.meta.productionStatus);
   });
 
   return {
     labelCount: data.labels.length,
+    sections: Array.from(sections).sort(),
+    productionStatuses: Array.from(productionStatuses).sort(),
   };
 }
 
@@ -144,6 +167,14 @@ function _validateLabelMeta(meta, index) {
 
   if (typeof meta.labelName !== "string" || meta.labelName.trim() === "") {
     throw new Error(`Label ${index + 1} must include a non-empty \`meta.labelName\`.`);
+  }
+
+  if (typeof meta.section !== "string" || meta.section.trim() === "") {
+    throw new Error(`Label ${index + 1} must include a non-empty \`meta.section\`.`);
+  }
+
+  if (typeof meta.subSection !== "string" || meta.subSection.trim() === "") {
+    throw new Error(`Label ${index + 1} must include a non-empty \`meta.subSection\`.`);
   }
 
   if (!validProductionStatuses.includes(meta.productionStatus)) {
@@ -208,9 +239,8 @@ async function _loadAndValidateLinkedJson() {
   }
 
   const validation = _validateJsonData(parsed);
-  const datasetMessage = validation.labelCount === null
-    ? "Dataset: loaded (no `labels` collection yet)"
-    : `Dataset: loaded (${validation.labelCount} labels)`;
+  const summary = _buildDatasetSummary(parsed, validation);
+  const datasetMessage = `Dataset: loaded (${validation.labelCount} labels)`;
 
   _setDatasetState(
     "loaded",
@@ -218,12 +248,24 @@ async function _loadAndValidateLinkedJson() {
     validation.labelCount,
     getLinkedJsonToken(),
   );
+  datasetState.summary = summary;
+  datasetState.parsedData = parsed;
 
   return {
     file,
     data: parsed,
     labelCount: validation.labelCount,
+    sections: validation.sections,
+    productionStatuses: validation.productionStatuses,
   };
+}
+
+function _buildDatasetSummary(data, validation) {
+  const sectionCount = validation.sections.length;
+  const statuses = validation.productionStatuses.join(", ");
+  const builtAt = data.builtAt;
+
+  return `Summary: ${data.sourceWordFile} | ${sectionCount} sections | statuses: ${statuses} | built ${builtAt}`;
 }
 
 /**
@@ -235,9 +277,7 @@ async function chooseJsonFile() {
     throw new Error("No file selected.");
   }
 
-  await linkJsonFile(file);
-  await _loadAndValidateLinkedJson();
-  return getLinkedJsonToken();
+  return linkExistingJsonFile(file);
 }
 
 /**
@@ -252,10 +292,19 @@ async function reloadJson() {
   }
 }
 
+async function linkExistingJsonFile(file) {
+  await linkJsonFile(file);
+  await _loadAndValidateLinkedJson();
+  return getLinkedJsonToken();
+}
+
 module.exports = {
   getStatusString,
   getDatasetStatusString,
+  getDatasetSummaryString,
+  getParsedDataset,
   getLinkedJsonToken,
   chooseJsonFile,
+  linkExistingJsonFile,
   reloadJson,
 };
