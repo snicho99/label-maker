@@ -35,13 +35,26 @@ This is still a prototype / linkage baseline. It does not yet create or update l
 
 ## Expected JSON shape
 
-The plugin currently performs baseline validation only. It expects the top-level JSON to be an object.
+The canonical JSON contract for the project now lives in `schema/label-schema.json`, with a working sample at `schema/examples/labels.sample.json`.
 
-The next milestone is a formal schema centered on:
+At minimum, the plugin now expects a dataset object with:
 
-- a `labels` collection
-- a stable identifier per label
-- the text/content fields required for museum labels
+- `schemaVersion`
+- `sourceWordFile`
+- `builtAt`
+- `labels`
+
+Each label must contain:
+
+- `meta.labelId`
+- `meta.layoutStyle`
+- `meta.labelName`
+- `meta.productionStatus`
+- `labelContent.header`
+- `labelContent.metaText`
+- `labelContent.body`
+
+`labelContent` is intentionally extensible so future templates can add fields without breaking the base contract.
 
 ## Files
 

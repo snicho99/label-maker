@@ -86,19 +86,79 @@ function _validateJsonData(data) {
     throw new Error("Top-level JSON must be an object.");
   }
 
-  if (Object.prototype.hasOwnProperty.call(data, "labels")) {
-    if (!Array.isArray(data.labels)) {
-      throw new Error("If present, `labels` must be an array.");
-    }
-
-    return {
-      labelCount: data.labels.length,
-    };
+  if (data.schemaVersion !== "1.0.0") {
+    throw new Error("`schemaVersion` must be `1.0.0`.");
   }
 
+  if (typeof data.sourceWordFile !== "string" || data.sourceWordFile.trim() === "") {
+    throw new Error("`sourceWordFile` must be a non-empty string.");
+  }
+
+  if (typeof data.builtAt !== "string" || Number.isNaN(Date.parse(data.builtAt))) {
+    throw new Error("`builtAt` must be a valid ISO 8601 timestamp string.");
+  }
+
+  if (!Array.isArray(data.labels)) {
+    throw new Error("`labels` must be an array.");
+  }
+
+  data.labels.forEach((label, index) => {
+    _validateLabel(label, index);
+  });
+
   return {
-    labelCount: null,
+    labelCount: data.labels.length,
   };
+}
+
+function _validateLabel(label, index) {
+  if (!label || typeof label !== "object" || Array.isArray(label)) {
+    throw new Error(`Label ${index + 1} must be an object.`);
+  }
+
+  const { meta, labelContent } = label;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    throw new Error(`Label ${index + 1} is missing a valid \`meta\` object.`);
+  }
+
+  if (!labelContent || typeof labelContent !== "object" || Array.isArray(labelContent)) {
+    throw new Error(`Label ${index + 1} is missing a valid \`labelContent\` object.`);
+  }
+
+  _validateLabelMeta(meta, index);
+  _validateLabelContent(labelContent, index);
+}
+
+function _validateLabelMeta(meta, index) {
+  const validLayoutStyles = ["objectLabel", "roomLabel", "groupLabel"];
+  const validProductionStatuses = ["draft", "edited", "final"];
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (typeof meta.labelId !== "string" || !uuidPattern.test(meta.labelId)) {
+    throw new Error(`Label ${index + 1} has an invalid \`meta.labelId\`.`);
+  }
+
+  if (!validLayoutStyles.includes(meta.layoutStyle)) {
+    throw new Error(`Label ${index + 1} has an invalid \`meta.layoutStyle\`.`);
+  }
+
+  if (typeof meta.labelName !== "string" || meta.labelName.trim() === "") {
+    throw new Error(`Label ${index + 1} must include a non-empty \`meta.labelName\`.`);
+  }
+
+  if (!validProductionStatuses.includes(meta.productionStatus)) {
+    throw new Error(`Label ${index + 1} has an invalid \`meta.productionStatus\`.`);
+  }
+}
+
+function _validateLabelContent(labelContent, index) {
+  const requiredFields = ["header", "metaText", "body"];
+
+  requiredFields.forEach((fieldName) => {
+    if (typeof labelContent[fieldName] !== "string") {
+      throw new Error(`Label ${index + 1} must include string field \`labelContent.${fieldName}\`.`);
+    }
+  });
 }
 
 /**

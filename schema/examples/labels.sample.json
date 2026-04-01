@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0.0",
+  "sourceWordFile": "Museum Labels Master.dotx",
+  "builtAt": "2026-04-01T03:15:00Z",
+  "labels": [
+    {
+      "meta": {
+        "labelId": "1f4b2ec6-8df8-4737-92df-44e1f1af7a40",
+        "section": "Global Exchange",
+        "subSection": "Porcelain and Trade",
+        "layoutStyle": "objectLabel",
+        "labelName": "Blue-and-White Charger",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Blue-and-White Charger",
+        "metaText": "Jingdezhen, China, Qing dynasty, c. 1720, porcelain",
+        "body": "Export porcelains like this charger were produced for international markets and reflect both Chinese ceramic skill and changing European taste.",
+        "creditLine": "Gift of the Hartwell Collection"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "a7ac7d31-f72a-4662-b7e7-332bd9fca868",
+        "section": "Gallery Orientation",
+        "subSection": "Entrance Interpretation",
+        "layoutStyle": "roomLabel",
+        "labelName": "Gallery Entrance Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Trade, Taste, and Exchange",
+        "metaText": "Gallery 4",
+        "body": "This gallery explores how objects moved across oceans, carrying stories of trade, status, collecting, and cultural encounter.",
+        "introNote": "Position at gallery threshold"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "3b8a9782-30bf-47fb-b4be-cf6fccdf54b4",
+        "section": "Colonial Life",
+        "subSection": "Domestic Rituals",
+        "layoutStyle": "groupLabel",
+        "labelName": "Silver Tableware Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Dining in the Colonial World",
+        "metaText": "Britain and Australia, 19th century, silver and silver plate",
+        "body": "These tablewares demonstrate how domestic rituals, imported styles, and industrial production shaped colonial dining rooms.",
+        "objectCount": 6
+      }
+    }
+  ]
+}

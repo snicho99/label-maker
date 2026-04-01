@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snicho99.github.io/label-maker/schema/label-schema.json",
+  "title": "Label Maker Dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceWordFile",
+    "builtAt",
+    "labels"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "sourceWordFile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "builtAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meta",
+        "labelContent"
+      ],
+      "properties": {
+        "meta": {
+          "$ref": "#/$defs/labelMeta"
+        },
+        "labelContent": {
+          "$ref": "#/$defs/labelContent"
+        }
+      }
+    },
+    "labelMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "labelId",
+        "section",
+        "subSection",
+        "layoutStyle",
+        "labelName",
+        "productionStatus"
+      ],
+      "properties": {
+        "labelId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subSection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layoutStyle": {
+          "type": "string",
+          "enum": [
+            "objectLabel",
+            "roomLabel",
+            "groupLabel"
+          ]
+        },
+        "labelName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "productionStatus": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "edited",
+            "final"
+          ]
+        }
+      }
+    },
+    "labelContent": {
+      "type": "object",
+      "required": [
+        "header",
+        "metaText",
+        "body"
+      ],
+      "properties": {
+        "header": {
+          "type": "string"
+        },
+        "metaText": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

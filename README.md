@@ -32,11 +32,24 @@ The project will remain plugin-centric for now, while growing into a small monor
 
 ## External contract: label JSON
 
-The JSON file is the main interface between the two halves of the system. The next design milestone is a formal schema for a label dataset with:
+The JSON file is the main interface between the two halves of the system. The canonical schema now lives at `schema/label-schema.json`, with a representative sample dataset at `schema/examples/labels.sample.json`.
 
-- one collection of labels
-- one stable identifier per label
-- the text/content fields required to render museum labels in InDesign
+The v1 dataset shape is:
+
+- `schemaVersion`
+- `sourceWordFile`
+- `builtAt`
+- `labels`
+
+Each label contains:
+
+- `meta.labelId`
+- `meta.layoutStyle`
+- `meta.labelName`
+- `meta.productionStatus`
+- `labelContent.header`
+- `labelContent.metaText`
+- `labelContent.body`
 
 The InDesign plugin will continue to use the `jsonDataSource` document label key as the persisted association mechanism unless a compatibility issue forces a change.
 
