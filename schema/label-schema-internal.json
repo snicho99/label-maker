@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://snicho99.github.io/label-maker/schema/label-schema-internal.json",
+  "title": "Label Maker Internal InDesign Label State",
+  "description": "Reference schema for the plugin-managed label state persisted inside an InDesign document label. This is internal-only state and is not part of the public Word/parser JSON contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stateVersion",
+    "labels"
+  ],
+  "properties": {
+    "stateVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "labels": {
+      "type": "object",
+      "description": "Map of labelId to plugin-managed persisted state.",
+      "propertyNames": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/persistedLabelState"
+      }
+    }
+  },
+  "$defs": {
+    "persistedLabelState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "labelId",
+        "createdAt",
+        "updatedAt",
+        "currentSpread",
+        "masterSpread",
+        "lastSourceSnapshot"
+      ],
+      "properties": {
+        "labelId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "currentSpread": {
+          "type": "string"
+        },
+        "masterSpread": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastSourceSnapshot": {
+          "$ref": "label-schema.json#/$defs/label"
+        }
+      }
+    }
+  }
+}

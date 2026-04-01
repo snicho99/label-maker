@@ -1,4 +1,4 @@
-function renderLabelsTable(tableBody, labels) {
+function renderLabelsTable(tableBody, labels, parentSpreadNames = []) {
   if (!tableBody) {
     return;
   }
@@ -8,6 +8,8 @@ function renderLabelsTable(tableBody, labels) {
     return;
   }
 
+  const parentSpreadNameSet = new Set(parentSpreadNames);
+
   const rowsHtml = labels.map((label) => {
     const name = escapeHtml(label.labelName);
     const layoutStyle = escapeHtml(label.layoutStyle);
@@ -15,11 +17,58 @@ function renderLabelsTable(tableBody, labels) {
     const changeStatus = escapeHtml(label.changeStatus);
     const createdAt = escapeHtml(formatTimestamp(label.createdAt));
     const updatedAt = escapeHtml(formatTimestamp(label.updatedAt));
+    const currentSpread = escapeHtml(label.currentSpread || "");
+    const layoutStyleClass = parentSpreadNameSet.has(label.layoutStyle)
+      ? "layoutStyleMatch"
+      : "";
+    const masterSpreadSelect = renderMasterSpreadSelect(label, parentSpreadNames);
+    const createButton = renderCreateButton(label);
+    const deleteButton = renderDeleteButton(label);
+    const findButton = renderFindButton(label);
 
-    return `<tr><td>${name}</td><td>${layoutStyle}</td><td>${productionStatus}</td><td>${changeStatus}</td><td>${createdAt}</td><td>${updatedAt}</td></tr>`;
+    return `<tr><td>${name}</td><td class="${layoutStyleClass}">${layoutStyle}</td><td>${productionStatus}</td><td>${changeStatus}</td><td>${createdAt}</td><td>${updatedAt}</td><td>${currentSpread}</td><td>${masterSpreadSelect}</td><td>${createButton}</td><td>${deleteButton}</td><td>${findButton}</td></tr>`;
   }).join("");
 
   tableBody.innerHTML = rowsHtml;
+}
+
+function renderCreateButton(label) {
+  const hasMasterSpread = typeof label.masterSpread === "string" && label.masterSpread.trim() !== "";
+  if (!hasMasterSpread) {
+    return "";
+  }
+
+  return `<button class="createLabelButton" data-label-id="${escapeHtml(label.labelId)}">Create</button>`;
+}
+
+function renderDeleteButton(label) {
+  const hasCurrentSpread = typeof label.currentSpread === "string" && label.currentSpread.trim() !== "";
+  if (!hasCurrentSpread) {
+    return "";
+  }
+
+  return `<button class="deleteLabelButton" data-label-id="${escapeHtml(label.labelId)}">Delete</button>`;
+}
+
+function renderFindButton(label) {
+  const hasCurrentSpread = typeof label.currentSpread === "string" && label.currentSpread.trim() !== "";
+  if (!hasCurrentSpread) {
+    return "";
+  }
+
+  return `<button class="findLabelButton" data-label-id="${escapeHtml(label.labelId)}">Find</button>`;
+}
+
+function renderMasterSpreadSelect(label, parentSpreadNames) {
+  const selectedValue = typeof label.masterSpread === "string" ? label.masterSpread : "";
+  const options = ['<option value="">None</option>']
+    .concat(parentSpreadNames.map((name) => {
+      const isSelected = name === selectedValue ? ' selected="selected"' : "";
+      return `<option value="${escapeHtml(name)}"${isSelected}>${escapeHtml(name)}</option>`;
+    }))
+    .join("");
+
+  return `<select class="masterSpreadSelect" data-label-id="${escapeHtml(label.labelId)}">${options}</select>`;
 }
 
 function renderEmptyLabelsTable(tableBody, message) {
@@ -27,7 +76,7 @@ function renderEmptyLabelsTable(tableBody, message) {
     return;
   }
 
-  tableBody.innerHTML = `<tr><td class="emptyState" colspan="6">${escapeHtml(message)}</td></tr>`;
+  tableBody.innerHTML = `<tr><td class="emptyState" colspan="11">${escapeHtml(message)}</td></tr>`;
 }
 
 function escapeHtml(value) {
