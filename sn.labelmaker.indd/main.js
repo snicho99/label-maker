@@ -56,6 +56,17 @@ function initializeUi(rootNode) {
     } else {
         console.warn("Reload JSON button not found during UI init");
     }
+
+    const applyLoadedChangesButton = rootNode.querySelector("#applyLoadedChanges");
+    if (applyLoadedChangesButton) {
+        applyLoadedChangesButton.onclick = () => {
+            handleApplyLoadedChangesClick(rootNode).catch((error) => {
+                console.error("Apply Loaded Changes click handler failed:", error);
+            });
+        };
+    } else {
+        console.warn("Apply Loaded Changes button not found during UI init");
+    }
 }
 
 function initializeTabs(rootNode) {
@@ -136,12 +147,37 @@ async function handleReloadJsonClick(rootNode) {
     }
 }
 
+async function handleApplyLoadedChangesClick(rootNode) {
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = "Action: applying loaded changes...";
+    }
+
+    try {
+        const result = await fileManager.applyLoadedChanges();
+        if (actionStatusEl) {
+            actionStatusEl.textContent = `Action: ${result.createdCount} created, ${result.updatedCount} updated, ${result.unchangedCount} unchanged`;
+        }
+    } catch (err) {
+        console.error("Apply Loaded Changes error:", err);
+        if (actionStatusEl) {
+            actionStatusEl.textContent = `Action: error (${err.message})`;
+        }
+    } finally {
+        await updateStatus(rootNode);
+    }
+}
+
 async function updateStatus(rootNode = currentPanelNode || document) {
     const statusEl = getElement(rootNode, "#jsonStatus");
     const datasetStatusEl = getElement(rootNode, "#datasetStatus");
     const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
+    const documentStateSummaryEl = getElement(rootNode, "#documentStateSummary");
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
     const labelsTableBody = getElement(rootNode, "#labelsTableBody");
     const reloadButton = getElement(rootNode, "#reloadJson");
+    const applyLoadedChangesButton = getElement(rootNode, "#applyLoadedChanges");
 
     if (!statusEl) {
         console.warn("Status element not found");
@@ -156,11 +192,21 @@ async function updateStatus(rootNode = currentPanelNode || document) {
         if (datasetSummaryEl) {
             datasetSummaryEl.textContent = fileManager.getDatasetSummaryString();
         }
-        labelsTable.renderLabelsTable(labelsTableBody, fileManager.getParsedDataset());
+        if (documentStateSummaryEl) {
+            documentStateSummaryEl.textContent = fileManager.getDocumentStateSummaryString();
+        }
+        if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
+            actionStatusEl.textContent = "Action: none";
+        }
+        labelsTable.renderLabelsTable(labelsTableBody, fileManager.getDisplayLabels());
         const token = fileManager.getLinkedJsonToken();
+        const parsedDataset = fileManager.getParsedDataset();
 
         if (reloadButton) {
             reloadButton.style.display = token ? "inline-block" : "none";
+        }
+        if (applyLoadedChangesButton) {
+            applyLoadedChangesButton.style.display = parsedDataset ? "inline-block" : "none";
         }
     } catch (e) {
         console.error("updateStatus failed:", e);
@@ -171,9 +217,18 @@ async function updateStatus(rootNode = currentPanelNode || document) {
         if (datasetSummaryEl) {
             datasetSummaryEl.textContent = "Summary: unavailable";
         }
+        if (documentStateSummaryEl) {
+            documentStateSummaryEl.textContent = "Document state: unavailable";
+        }
+        if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
+            actionStatusEl.textContent = "Action: unavailable";
+        }
         labelsTable.renderEmptyLabelsTable(labelsTableBody, "Unable to display labels.");
         if (reloadButton) {
             reloadButton.style.display = "inline-block";
+        }
+        if (applyLoadedChangesButton) {
+            applyLoadedChangesButton.style.display = "none";
         }
     }
 }

@@ -58,7 +58,7 @@ The InDesign plugin will continue to use the `jsonDataSource` document label key
 ### Phase 1: prototype hardening
 
 - [x] persist a durable association to a chosen JSON file
-- [~] validate and parse linked JSON on reload
+- [x] validate and parse linked JSON on reload
 - [x] improve panel status reporting
 - [x] fix plugin metadata and icon wiring
 - [x] document installation and baseline behavior clearly
@@ -74,9 +74,14 @@ The InDesign plugin will continue to use the `jsonDataSource` document label key
 
 ### Phase 3: first sync workflow
 
-- create a one-way "create missing labels from JSON" action
-- define stable label identity mapping between JSON and InDesign objects
-- reserve full update/delete behavior for a later milestone once layout and identity rules are locked
+- [x] create a one-way "create missing labels from JSON" action
+- [x] define stable label identity mapping between JSON and InDesign objects
+- [x] persist plugin-managed label state inside the InDesign document
+- [x] track per-label plugin metadata such as `createdAt` and `updatedAt` inside document state only
+- [x] compare reloaded JSON against persisted document state to surface changes since last load
+- [x] apply loaded JSON changes back into persisted plugin-managed label state
+- [x] display persisted plugin timestamps in a human-readable "time ago" format in the labels table
+- [ ] reserve full update/delete behavior for a later milestone once layout and identity rules are locked
 
 ## Roadmap tracking
 
@@ -88,10 +93,16 @@ Use these markers in this README as work progresses:
 
 When significant work is requested that is not already represented on the roadmap, add it here before or alongside implementation so the README stays aligned with the real project.
 
+Roadmap decisions currently locked in:
+
+- plugin-only state such as `createdAt` and `updatedAt` stays internal to the saved InDesign document
+- the public Word/parser JSON schema remains source-data only and does not include plugin-managed lifecycle fields
+
 ## Repository workflow
 
 - Default branch: `main`
 - Remote: `origin`
+- InDesign document files (`*.indd`) are tracked with Git LFS
 - Initial baseline commit message: `Initial scaffold for museum label maker`
 
 After the initial baseline push, follow-on work should branch by milestone:

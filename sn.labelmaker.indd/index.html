@@ -40,6 +40,11 @@
   .tabPanel {
     display: none;
   }
+  .manageActions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
   .tableWrap {
     border: 1px solid #4a4a4a;
     border-radius: 4px;
@@ -72,17 +77,21 @@
 
 <body>
   <div class="wrapper">
-    <p>Label Maker Plugin</p>
     <div class="tabs">
       <button class="tabButton active" data-tab-target="manageTab">Manage</button>
       <button class="tabButton" data-tab-target="labelsTab">Labels</button>
     </div>
     <div class="tabPanel" id="manageTab" data-tab-panel>
-      <button id="chooseJson">Choose JSON File</button>
-      <button id="reloadJson" style="display:none; margin-top: 8px;">Reload JSON</button>
+      <div class="manageActions">
+        <button id="chooseJson">Choose JSON File</button>
+        <button id="reloadJson" style="display:none;">Reload JSON</button>
+        <button id="applyLoadedChanges" style="display:none;">Apply Loaded Changes</button>
+      </div>
       <p id="jsonStatus">Status: unlinked</p>
       <p id="datasetStatus">Dataset: not loaded</p>
       <p id="datasetSummary">Summary: none</p>
+      <p id="documentStateSummary">Document state: none</p>
+      <p id="actionStatus">Action: none</p>
     </div>
     <div class="tabPanel" id="labelsTab" data-tab-panel>
       <div class="tableWrap">
@@ -92,11 +101,14 @@
               <th>Name</th>
               <th>Layout Style</th>
               <th>Production Status</th>
+              <th>Change</th>
+              <th>Created</th>
+              <th>Updated</th>
             </tr>
           </thead>
           <tbody id="labelsTableBody">
             <tr>
-              <td class="emptyState" colspan="3">No labels loaded.</td>
+              <td class="emptyState" colspan="6">No labels loaded.</td>
             </tr>
           </tbody>
         </table>

@@ -4,6 +4,8 @@ const fs = require("uxp").storage.localFileSystem;
 const JSON_DATA_SOURCE_KEY = "jsonDataSource";
 const JSON_DATA_SOURCE_NAME_KEY = "jsonDataSourceName";
 const JSON_DATA_SOURCE_PATH_KEY = "jsonDataSourcePath";
+const DOCUMENT_LABEL_STATE_KEY = "labelMakerDocumentState";
+const DOCUMENT_LABEL_STATE_VERSION = "1.0.0";
 
 const datasetState = {
   state: "not_loaded",
@@ -12,6 +14,8 @@ const datasetState = {
   sourceToken: "",
   summary: "Summary: none",
   parsedData: null,
+  displayLabels: [],
+  documentStateSummary: "Document state: none",
 };
 
 /**
@@ -51,14 +55,23 @@ function getStatusString() {
     return "Status: No active document";
   }
 
+  _refreshDisplayStateFromDocument();
+
   const token = getLinkedJsonToken();
   if (!token) {
-    _setDatasetState("not_loaded", "Dataset: not loaded");
+    datasetState.state = "not_loaded";
+    datasetState.message = "Dataset: not loaded";
+    datasetState.labelCount = null;
+    datasetState.sourceToken = "";
+    if (!datasetState.summary || datasetState.summary === "Summary: none") {
+      datasetState.summary = "Summary: persisted labels only";
+    }
     return "Status: unlinked";
   }
 
   if (datasetState.sourceToken && datasetState.sourceToken !== token) {
     _setDatasetState("linked", "Dataset: linked, not loaded yet", null, token);
+    _refreshDisplayStateFromDocument();
   }
 
   const name = getLinkedJsonName();
@@ -88,6 +101,18 @@ function getParsedDataset() {
   return datasetState.parsedData;
 }
 
+function getDisplayLabels() {
+  return datasetState.displayLabels;
+}
+
+function getDocumentStateSummaryString() {
+  if (!app || !app.activeDocument) {
+    return "Document state: no active document";
+  }
+
+  return datasetState.documentStateSummary;
+}
+
 function _setDatasetState(state, message, labelCount = null, sourceToken = "") {
   datasetState.state = state;
   datasetState.message = message;
@@ -95,6 +120,26 @@ function _setDatasetState(state, message, labelCount = null, sourceToken = "") {
   datasetState.sourceToken = sourceToken;
   datasetState.summary = "Summary: none";
   datasetState.parsedData = null;
+  datasetState.displayLabels = [];
+  datasetState.documentStateSummary = "Document state: none";
+}
+
+function _refreshDisplayStateFromDocument() {
+  try {
+    const documentState = _readDocumentLabelState();
+    datasetState.displayLabels = _buildPersistedDisplayLabels(documentState);
+    datasetState.documentStateSummary = _buildPersistedOnlyDocumentStateSummary(documentState);
+
+    if (datasetState.displayLabels.length > 0 && !datasetState.parsedData) {
+      datasetState.summary = "Summary: persisted labels available";
+    }
+  } catch (error) {
+    datasetState.displayLabels = [];
+    datasetState.documentStateSummary = "Document state: unavailable";
+    if (!datasetState.parsedData) {
+      datasetState.summary = "Summary: unavailable";
+    }
+  }
 }
 
 function _validateJsonData(data) {
@@ -239,7 +284,9 @@ async function _loadAndValidateLinkedJson() {
   }
 
   const validation = _validateJsonData(parsed);
-  const summary = _buildDatasetSummary(parsed, validation);
+  const documentState = _readDocumentLabelState();
+  const comparison = _buildLabelComparison(parsed, documentState);
+  const summary = _buildDatasetSummary(parsed, validation, comparison);
   const datasetMessage = `Dataset: loaded (${validation.labelCount} labels)`;
 
   _setDatasetState(
@@ -250,6 +297,8 @@ async function _loadAndValidateLinkedJson() {
   );
   datasetState.summary = summary;
   datasetState.parsedData = parsed;
+  datasetState.displayLabels = comparison.displayLabels;
+  datasetState.documentStateSummary = _buildDocumentStateSummary(documentState, comparison);
 
   return {
     file,
@@ -257,15 +306,164 @@ async function _loadAndValidateLinkedJson() {
     labelCount: validation.labelCount,
     sections: validation.sections,
     productionStatuses: validation.productionStatuses,
+    comparison,
   };
 }
 
-function _buildDatasetSummary(data, validation) {
+function _buildDatasetSummary(data, validation, comparison) {
   const sectionCount = validation.sections.length;
-  const statuses = validation.productionStatuses.join(", ");
+  const statuses = comparison.counts.changed > 0 || comparison.counts.new > 0
+    ? `${comparison.counts.new} new, ${comparison.counts.changed} changed, ${comparison.counts.unchanged} unchanged`
+    : validation.productionStatuses.join(", ");
   const builtAt = data.builtAt;
 
   return `Summary: ${data.sourceWordFile} | ${sectionCount} sections | statuses: ${statuses} | built ${builtAt}`;
+}
+
+function _buildDocumentStateSummary(documentState, comparison) {
+  const persistedCount = Object.keys(documentState.labels).length;
+  return `Document state: ${persistedCount} persisted | ${comparison.counts.removed} removed from current JSON`;
+}
+
+function _buildPersistedOnlyDocumentStateSummary(documentState) {
+  const persistedCount = Object.keys(documentState.labels).length;
+  return `Document state: ${persistedCount} persisted`;
+}
+
+function _readDocumentLabelState() {
+  const doc = _getActiveDocument();
+  const raw = doc.extractLabel(DOCUMENT_LABEL_STATE_KEY) || "";
+
+  if (!raw) {
+    return _createEmptyDocumentLabelState();
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error("Document label state is invalid JSON.");
+  }
+
+  return _normalizeDocumentLabelState(parsed);
+}
+
+function _normalizeDocumentLabelState(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("Document label state is invalid.");
+  }
+
+  const labels = data.labels && typeof data.labels === "object" && !Array.isArray(data.labels)
+    ? data.labels
+    : {};
+
+  return {
+    stateVersion: typeof data.stateVersion === "string" ? data.stateVersion : DOCUMENT_LABEL_STATE_VERSION,
+    labels,
+  };
+}
+
+function _createEmptyDocumentLabelState() {
+  return {
+    stateVersion: DOCUMENT_LABEL_STATE_VERSION,
+    labels: {},
+  };
+}
+
+function _writeDocumentLabelState(documentState) {
+  const doc = _getActiveDocument();
+  doc.insertLabel(DOCUMENT_LABEL_STATE_KEY, JSON.stringify(documentState));
+}
+
+function _buildLabelComparison(data, documentState) {
+  const displayLabels = [];
+  const counts = {
+    new: 0,
+    changed: 0,
+    unchanged: 0,
+    removed: 0,
+  };
+  const currentIds = new Set();
+
+  data.labels.forEach((label) => {
+    const labelId = label.meta.labelId;
+    const snapshot = _createLabelSnapshot(label);
+    const existingState = documentState.labels[labelId] || null;
+    const changeStatus = _getChangeStatus(existingState, snapshot);
+
+    counts[changeStatus] += 1;
+    currentIds.add(labelId);
+    displayLabels.push({
+      labelId,
+      labelName: label.meta.labelName,
+      layoutStyle: label.meta.layoutStyle,
+      productionStatus: label.meta.productionStatus,
+      changeStatus,
+      createdAt: existingState ? existingState.createdAt || "" : "",
+      updatedAt: existingState ? existingState.updatedAt || "" : "",
+    });
+  });
+
+  Object.keys(documentState.labels).forEach((labelId) => {
+    if (!currentIds.has(labelId)) {
+      counts.removed += 1;
+    }
+  });
+
+  return {
+    displayLabels,
+    counts,
+  };
+}
+
+function _buildPersistedDisplayLabels(documentState) {
+  return Object.values(documentState.labels).map((labelState) => {
+    const snapshot = labelState.lastSourceSnapshot || {};
+    const meta = snapshot.meta || {};
+
+    return {
+      labelId: labelState.labelId || meta.labelId || "",
+      labelName: meta.labelName || "Unnamed label",
+      layoutStyle: meta.layoutStyle || "Unknown",
+      productionStatus: meta.productionStatus || "Unknown",
+      changeStatus: "persisted",
+      createdAt: labelState.createdAt || "",
+      updatedAt: labelState.updatedAt || "",
+    };
+  });
+}
+
+function _getChangeStatus(existingState, snapshot) {
+  if (!existingState) {
+    return "new";
+  }
+
+  if (!_snapshotsEqual(existingState.lastSourceSnapshot, snapshot)) {
+    return "changed";
+  }
+
+  return "unchanged";
+}
+
+function _createLabelSnapshot(label) {
+  return JSON.parse(JSON.stringify(label));
+}
+
+function _snapshotsEqual(left, right) {
+  return _stableSerialize(left) === _stableSerialize(right);
+}
+
+function _stableSerialize(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => _stableSerialize(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${_stableSerialize(value[key])}`).join(",")}}`;
+  }
+
+  return JSON.stringify(value);
 }
 
 /**
@@ -298,13 +496,68 @@ async function linkExistingJsonFile(file) {
   return getLinkedJsonToken();
 }
 
+async function applyLoadedChanges() {
+  if (!datasetState.parsedData || !Array.isArray(datasetState.parsedData.labels)) {
+    throw new Error("Load JSON before applying changes.");
+  }
+
+  const documentState = _readDocumentLabelState();
+  const now = new Date().toISOString();
+  let createdCount = 0;
+  let updatedCount = 0;
+  let unchangedCount = 0;
+
+  datasetState.parsedData.labels.forEach((label) => {
+    const labelId = label.meta.labelId;
+    const snapshot = _createLabelSnapshot(label);
+    const existingState = documentState.labels[labelId];
+
+    if (!existingState) {
+      documentState.labels[labelId] = {
+        labelId,
+        createdAt: now,
+        updatedAt: now,
+        lastSourceSnapshot: snapshot,
+      };
+      createdCount += 1;
+      return;
+    }
+
+    if (!_snapshotsEqual(existingState.lastSourceSnapshot, snapshot)) {
+      documentState.labels[labelId] = {
+        ...existingState,
+        updatedAt: now,
+        lastSourceSnapshot: snapshot,
+      };
+      updatedCount += 1;
+      return;
+    }
+
+    unchangedCount += 1;
+  });
+
+  _writeDocumentLabelState(documentState);
+  await _loadAndValidateLinkedJson();
+
+  return {
+    createdCount,
+    updatedCount,
+    unchangedCount,
+    totalCount: datasetState.parsedData.labels.length,
+  };
+}
+
 module.exports = {
   getStatusString,
   getDatasetStatusString,
   getDatasetSummaryString,
   getParsedDataset,
+  getDisplayLabels,
+  getDocumentStateSummaryString,
   getLinkedJsonToken,
   chooseJsonFile,
   linkExistingJsonFile,
+  applyLoadedChanges,
+  createMissingLabels: applyLoadedChanges,
   reloadJson,
 };
