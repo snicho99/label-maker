@@ -1,5 +1,6 @@
 const { app } = require("indesign");
 const fs = require("uxp").storage.localFileSystem;
+const spreadCreation = require("./spreadCreation");
 
 const JSON_DATA_SOURCE_KEY = "jsonDataSource";
 const JSON_DATA_SOURCE_NAME_KEY = "jsonDataSourceName";
@@ -113,6 +114,140 @@ function getDocumentStateSummaryString() {
   return datasetState.documentStateSummary;
 }
 
+function setLabelMasterSpread(labelId, masterSpreadName) {
+  if (typeof labelId !== "string" || labelId.trim() === "") {
+    throw new Error("A valid labelId is required.");
+  }
+
+  const documentState = _readDocumentLabelState();
+  const labelState = documentState.labels[labelId];
+  if (!labelState) {
+    throw new Error("Persisted label state was not found.");
+  }
+
+  labelState.masterSpread = _normalizeMasterSpreadValue(masterSpreadName);
+  _writeDocumentLabelState(documentState);
+  _refreshDatasetDisplayState(documentState);
+
+  return labelState.masterSpread;
+}
+
+function createLabel(labelId) {
+  if (typeof labelId !== "string" || labelId.trim() === "") {
+    throw new Error("A valid labelId is required.");
+  }
+
+  const documentState = _readDocumentLabelState();
+  const labelState = documentState.labels[labelId];
+  if (!labelState) {
+    throw new Error("Persisted label state was not found.");
+  }
+
+  if (_normalizeMasterSpreadValue(labelState.masterSpread) === null) {
+    throw new Error("Select a valid master spread before creating a label.");
+  }
+
+  const now = new Date().toISOString();
+  const creationResult = spreadCreation.createSpreadFromParent(labelState.masterSpread);
+
+  if (!labelState.createdAt) {
+    labelState.createdAt = now;
+  }
+  labelState.updatedAt = now;
+  labelState.currentSpread = creationResult.spreadReference;
+  _writeDocumentLabelState(documentState);
+  _refreshDatasetDisplayState(documentState);
+
+  return {
+    createdAt: labelState.createdAt,
+    currentSpread: labelState.currentSpread,
+    masterSpread: labelState.masterSpread,
+  };
+}
+
+function deleteLabel(labelId) {
+  if (typeof labelId !== "string" || labelId.trim() === "") {
+    throw new Error("A valid labelId is required.");
+  }
+
+  const documentState = _readDocumentLabelState();
+  const labelState = documentState.labels[labelId];
+  if (!labelState) {
+    throw new Error("Persisted label state was not found.");
+  }
+
+  const spreadReference = typeof labelState.currentSpread === "string" ? labelState.currentSpread.trim() : "";
+  if (!spreadReference) {
+    throw new Error("This label does not have an associated spread.");
+  }
+
+  spreadCreation.deleteSpreadByReference(spreadReference);
+  labelState.currentSpread = "";
+  labelState.updatedAt = new Date().toISOString();
+  _writeDocumentLabelState(documentState);
+  _refreshDatasetDisplayState(documentState);
+
+  return {
+    deletedSpreadReference: spreadReference,
+  };
+}
+
+function findLabel(labelId) {
+  if (typeof labelId !== "string" || labelId.trim() === "") {
+    throw new Error("A valid labelId is required.");
+  }
+
+  const documentState = _readDocumentLabelState();
+  const labelState = documentState.labels[labelId];
+  if (!labelState) {
+    throw new Error("Persisted label state was not found.");
+  }
+
+  const spreadReference = typeof labelState.currentSpread === "string" ? labelState.currentSpread.trim() : "";
+  if (!spreadReference) {
+    throw new Error("This label does not have an associated spread.");
+  }
+
+  return spreadCreation.focusSpreadByReference(spreadReference);
+}
+
+function reconcileMasterSpreads(availableParentSpreadNames) {
+  const availableNames = Array.isArray(availableParentSpreadNames)
+    ? new Set(availableParentSpreadNames.filter((name) => typeof name === "string" && name.trim() !== ""))
+    : new Set();
+  const documentState = _readDocumentLabelState();
+  let changed = false;
+
+  Object.values(documentState.labels).forEach((labelState) => {
+    const currentValue = _normalizeMasterSpreadValue(labelState.masterSpread);
+    if (currentValue === null) {
+      if (labelState.masterSpread !== null) {
+        labelState.masterSpread = null;
+        changed = true;
+      }
+      return;
+    }
+
+    if (!availableNames.has(currentValue)) {
+      labelState.masterSpread = null;
+      changed = true;
+      return;
+    }
+
+    if (labelState.masterSpread !== currentValue) {
+      labelState.masterSpread = currentValue;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    _writeDocumentLabelState(documentState);
+  }
+
+  _refreshDatasetDisplayState(documentState);
+  return changed;
+}
+
 function _setDatasetState(state, message, labelCount = null, sourceToken = "") {
   datasetState.state = state;
   datasetState.message = message;
@@ -127,12 +262,7 @@ function _setDatasetState(state, message, labelCount = null, sourceToken = "") {
 function _refreshDisplayStateFromDocument() {
   try {
     const documentState = _readDocumentLabelState();
-    datasetState.displayLabels = _buildPersistedDisplayLabels(documentState);
-    datasetState.documentStateSummary = _buildPersistedOnlyDocumentStateSummary(documentState);
-
-    if (datasetState.displayLabels.length > 0 && !datasetState.parsedData) {
-      datasetState.summary = "Summary: persisted labels available";
-    }
+    _refreshDatasetDisplayState(documentState);
   } catch (error) {
     datasetState.displayLabels = [];
     datasetState.documentStateSummary = "Document state: unavailable";
@@ -330,6 +460,22 @@ function _buildPersistedOnlyDocumentStateSummary(documentState) {
   return `Document state: ${persistedCount} persisted`;
 }
 
+function _refreshDatasetDisplayState(documentState) {
+  if (datasetState.parsedData && Array.isArray(datasetState.parsedData.labels)) {
+    const comparison = _buildLabelComparison(datasetState.parsedData, documentState);
+    datasetState.displayLabels = comparison.displayLabels;
+    datasetState.documentStateSummary = _buildDocumentStateSummary(documentState, comparison);
+    return;
+  }
+
+  datasetState.displayLabels = _buildPersistedDisplayLabels(documentState);
+  datasetState.documentStateSummary = _buildPersistedOnlyDocumentStateSummary(documentState);
+
+  if (datasetState.displayLabels.length > 0) {
+    datasetState.summary = "Summary: persisted labels available";
+  }
+}
+
 function _readDocumentLabelState() {
   const doc = _getActiveDocument();
   const raw = doc.extractLabel(DOCUMENT_LABEL_STATE_KEY) || "";
@@ -359,7 +505,7 @@ function _normalizeDocumentLabelState(data) {
 
   return {
     stateVersion: typeof data.stateVersion === "string" ? data.stateVersion : DOCUMENT_LABEL_STATE_VERSION,
-    labels,
+    labels: _normalizeDocumentLabelMap(labels),
   };
 }
 
@@ -401,6 +547,8 @@ function _buildLabelComparison(data, documentState) {
       changeStatus,
       createdAt: existingState ? existingState.createdAt || "" : "",
       updatedAt: existingState ? existingState.updatedAt || "" : "",
+      currentSpread: existingState ? _getCurrentSpreadDisplayValue(existingState.currentSpread) : "",
+      masterSpread: existingState ? _normalizeMasterSpreadValue(existingState.masterSpread) : null,
     });
   });
 
@@ -429,8 +577,54 @@ function _buildPersistedDisplayLabels(documentState) {
       changeStatus: "persisted",
       createdAt: labelState.createdAt || "",
       updatedAt: labelState.updatedAt || "",
+      currentSpread: _getCurrentSpreadDisplayValue(labelState.currentSpread),
+      masterSpread: _normalizeMasterSpreadValue(labelState.masterSpread),
     };
   });
+}
+
+function _normalizeDocumentLabelMap(labels) {
+  return Object.fromEntries(
+    Object.entries(labels).map(([labelId, labelState]) => {
+      const normalizedState = labelState && typeof labelState === "object" && !Array.isArray(labelState)
+        ? {
+            ...labelState,
+            currentSpread: typeof labelState.currentSpread === "string" ? labelState.currentSpread : "",
+            masterSpread: _normalizeMasterSpreadValue(labelState.masterSpread),
+          }
+        : {
+            labelId,
+            createdAt: "",
+            updatedAt: "",
+            currentSpread: "",
+            masterSpread: null,
+            lastSourceSnapshot: null,
+          };
+
+      return [labelId, normalizedState];
+    }),
+  );
+}
+
+function _normalizeMasterSpreadValue(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+function _getCurrentSpreadDisplayValue(spreadReference) {
+  if (typeof spreadReference !== "string" || spreadReference.trim() === "") {
+    return "";
+  }
+
+  try {
+    return spreadCreation.getSpreadDisplayLabelByReference(spreadReference);
+  } catch (error) {
+    return spreadReference;
+  }
 }
 
 function _getChangeStatus(existingState, snapshot) {
@@ -517,6 +711,8 @@ async function applyLoadedChanges() {
         labelId,
         createdAt: now,
         updatedAt: now,
+        currentSpread: "",
+        masterSpread: null,
         lastSourceSnapshot: snapshot,
       };
       createdCount += 1;
@@ -527,6 +723,8 @@ async function applyLoadedChanges() {
       documentState.labels[labelId] = {
         ...existingState,
         updatedAt: now,
+        currentSpread: typeof existingState.currentSpread === "string" ? existingState.currentSpread : "",
+        masterSpread: _normalizeMasterSpreadValue(existingState.masterSpread),
         lastSourceSnapshot: snapshot,
       };
       updatedCount += 1;
@@ -560,4 +758,9 @@ module.exports = {
   applyLoadedChanges,
   createMissingLabels: applyLoadedChanges,
   reloadJson,
+  reconcileMasterSpreads,
+  setLabelMasterSpread,
+  createLabel,
+  deleteLabel,
+  findLabel,
 };

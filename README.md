@@ -13,6 +13,8 @@ This repository is the foundation snapshot for that workflow. The InDesign plugi
 - The InDesign plugin prototype lives in `sn.labelmaker.indd/`.
 - It can associate the active InDesign document with a chosen JSON file and persist that association in the document using the `jsonDataSource` label key.
 - It can reload the linked JSON file, parse it, and surface basic status in the panel.
+- It can persist per-label internal state in the InDesign document, including chosen master spreads and created spread references.
+- It now includes a labels table with per-row create, delete, and find actions for spread-linked labels.
 - The broader parser, schema, and full CRUD sync flow are planned but not implemented yet.
 
 Treat this commit as a baseline scaffold, not a finished release.
@@ -33,6 +35,8 @@ The project will remain plugin-centric for now, while growing into a small monor
 ## External contract: label JSON
 
 The JSON file is the main interface between the two halves of the system. The canonical schema now lives at `schema/label-schema.json`, with a representative sample dataset at `schema/examples/labels.sample.json`.
+
+Plugin-only persisted state is documented separately at `schema/label-schema-internal.json`.
 
 The v1 dataset shape is:
 
@@ -81,7 +85,13 @@ The InDesign plugin will continue to use the `jsonDataSource` document label key
 - [x] compare reloaded JSON against persisted document state to surface changes since last load
 - [x] apply loaded JSON changes back into persisted plugin-managed label state
 - [x] display persisted plugin timestamps in a human-readable "time ago" format in the labels table
-- [ ] reserve full update/delete behavior for a later milestone once layout and identity rules are locked
+- [x] document the internal persisted InDesign label state schema
+- [x] allow per-label master spread selection from available document master spreads
+- [x] clear invalid persisted master spread selections when the active document changes
+- [x] create a spread from a selected master spread and persist the created spread reference
+- [x] delete a created spread and clear the persisted spread reference
+- [x] locate and focus a created spread from the labels table
+- [ ] reserve full content update behavior for a later milestone once layout and identity rules are locked
 
 ## Roadmap tracking
 

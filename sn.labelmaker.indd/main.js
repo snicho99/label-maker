@@ -2,7 +2,10 @@ const { entrypoints } = require("uxp");
 const { app } = require("indesign");
 const fileManager = require("./fileManager");
 const labelsTable = require("./labelsTable");
+const spreadCreation = require("./spreadCreation");
 let currentPanelNode = null;
+let activeDocumentPollInterval = null;
+let lastActiveDocumentSignature = "no-document";
 
 entrypoints.setup({
 
@@ -15,6 +18,7 @@ entrypoints.setup({
         console.log("Panel shown, node:", node);
         currentPanelNode = node || document;
         initializeUi(currentPanelNode);
+        startActiveDocumentWatcher();
         await updateStatus(currentPanelNode);
       }
     }
@@ -69,12 +73,36 @@ function initializeUi(rootNode) {
     }
 }
 
+function startActiveDocumentWatcher() {
+    if (activeDocumentPollInterval) {
+        return;
+    }
+
+    lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
+    activeDocumentPollInterval = setInterval(() => {
+        const nextSignature = spreadCreation.getActiveDocumentSignature();
+        if (nextSignature === lastActiveDocumentSignature) {
+            return;
+        }
+
+        lastActiveDocumentSignature = nextSignature;
+        updateStatus(currentPanelNode).catch((error) => {
+            console.error("Active document refresh failed:", error);
+        });
+    }, 1000);
+}
+
 function initializeTabs(rootNode) {
     const tabButtons = rootNode.querySelectorAll("[data-tab-target]");
     tabButtons.forEach((button) => {
         button.onclick = () => {
             const target = button.getAttribute("data-tab-target");
             activateTab(rootNode, target);
+            if (target === "labelsTab") {
+                updateStatus(rootNode).catch((error) => {
+                    console.error("Labels tab refresh failed:", error);
+                });
+            }
         };
     });
 
@@ -185,6 +213,7 @@ async function updateStatus(rootNode = currentPanelNode || document) {
     }
 
     try {
+        lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
         statusEl.textContent = fileManager.getStatusString();
         if (datasetStatusEl) {
             datasetStatusEl.textContent = fileManager.getDatasetStatusString();
@@ -198,7 +227,13 @@ async function updateStatus(rootNode = currentPanelNode || document) {
         if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
             actionStatusEl.textContent = "Action: none";
         }
-        labelsTable.renderLabelsTable(labelsTableBody, fileManager.getDisplayLabels());
+        const parentSpreadNames = spreadCreation.listParentSpreadNames();
+        fileManager.reconcileMasterSpreads(parentSpreadNames);
+        labelsTable.renderLabelsTable(labelsTableBody, fileManager.getDisplayLabels(), parentSpreadNames);
+        bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames);
+        bindCreateLabelHandlers(rootNode);
+        bindDeleteLabelHandlers(rootNode);
+        bindFindLabelHandlers(rootNode);
         const token = fileManager.getLinkedJsonToken();
         const parsedDataset = fileManager.getParsedDataset();
 
@@ -231,4 +266,157 @@ async function updateStatus(rootNode = currentPanelNode || document) {
             applyLoadedChangesButton.style.display = "none";
         }
     }
+}
+
+function bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames) {
+    if (!rootNode || !rootNode.querySelectorAll) {
+        return;
+    }
+
+    const selects = rootNode.querySelectorAll(".masterSpreadSelect");
+    selects.forEach((selectEl) => {
+        selectEl.onchange = () => {
+            handleMasterSpreadChange(rootNode, selectEl, parentSpreadNames).catch((error) => {
+                console.error("Master spread change failed:", error);
+            });
+        };
+    });
+}
+
+function bindCreateLabelHandlers(rootNode) {
+    if (!rootNode || !rootNode.querySelectorAll) {
+        return;
+    }
+
+    const buttons = rootNode.querySelectorAll(".createLabelButton");
+    buttons.forEach((buttonEl) => {
+        buttonEl.onclick = () => {
+            handleCreateLabelClick(rootNode, buttonEl).catch((error) => {
+                console.error("Create label click failed:", error);
+            });
+        };
+    });
+}
+
+function bindDeleteLabelHandlers(rootNode) {
+    if (!rootNode || !rootNode.querySelectorAll) {
+        return;
+    }
+
+    const buttons = rootNode.querySelectorAll(".deleteLabelButton");
+    buttons.forEach((buttonEl) => {
+        buttonEl.onclick = () => {
+            handleDeleteLabelClick(rootNode, buttonEl).catch((error) => {
+                console.error("Delete label click failed:", error);
+            });
+        };
+    });
+}
+
+function bindFindLabelHandlers(rootNode) {
+    if (!rootNode || !rootNode.querySelectorAll) {
+        return;
+    }
+
+    const buttons = rootNode.querySelectorAll(".findLabelButton");
+    buttons.forEach((buttonEl) => {
+        buttonEl.onclick = () => {
+            handleFindLabelClick(rootNode, buttonEl).catch((error) => {
+                console.error("Find label click failed:", error);
+            });
+        };
+    });
+}
+
+async function handleCreateLabelClick(rootNode, buttonEl) {
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
+    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+
+    if (!labelId) {
+        throw new Error("Missing label id for create action.");
+    }
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = "Action: creating label...";
+    }
+
+    const result = fileManager.createLabel(labelId);
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = `Action: created label on spread ${result.currentSpread} using ${result.masterSpread}`;
+    }
+
+    await updateStatus(rootNode);
+}
+
+async function handleDeleteLabelClick(rootNode, buttonEl) {
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
+    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+
+    if (!labelId) {
+        throw new Error("Missing label id for delete action.");
+    }
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = "Action: deleting label spread...";
+    }
+
+    const result = fileManager.deleteLabel(labelId);
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = `Action: deleted spread ${result.deletedSpreadReference}`;
+    }
+
+    await updateStatus(rootNode);
+}
+
+async function handleFindLabelClick(rootNode, buttonEl) {
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
+    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+
+    if (!labelId) {
+        throw new Error("Missing label id for find action.");
+    }
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = "Action: locating label spread...";
+    }
+
+    const result = fileManager.findLabel(labelId);
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = `Action: focused spread ${result.spreadReference}`;
+    }
+
+    await updateStatus(rootNode);
+}
+
+async function handleMasterSpreadChange(rootNode, selectEl, parentSpreadNames) {
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
+    const labelId = selectEl ? selectEl.getAttribute("data-label-id") : "";
+    const selectedValue = selectEl ? selectEl.value : "";
+
+    if (!labelId) {
+        throw new Error("Missing label id for master spread change.");
+    }
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = "Action: saving master spread...";
+    }
+
+    const availableNames = Array.isArray(parentSpreadNames) ? parentSpreadNames : [];
+    const persistedValue = availableNames.includes(selectedValue) ? selectedValue : null;
+    const savedValue = fileManager.setLabelMasterSpread(labelId, persistedValue);
+
+    if (selectEl) {
+        selectEl.value = savedValue || "";
+    }
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = savedValue
+            ? `Action: saved master spread ${savedValue}`
+            : "Action: cleared master spread";
+    }
+
+    await updateStatus(rootNode);
 }
