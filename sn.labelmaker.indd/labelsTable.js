@@ -23,10 +23,11 @@ function renderLabelsTable(tableBody, labels, parentSpreadNames = []) {
       : "";
     const masterSpreadSelect = renderMasterSpreadSelect(label, parentSpreadNames);
     const createButton = renderCreateButton(label);
+    const refreshButton = renderRefreshButton(label);
     const deleteButton = renderDeleteButton(label);
     const findButton = renderFindButton(label);
 
-    return `<tr><td>${name}</td><td class="${layoutStyleClass}">${layoutStyle}</td><td>${productionStatus}</td><td>${changeStatus}</td><td>${createdAt}</td><td>${updatedAt}</td><td>${currentSpread}</td><td>${masterSpreadSelect}</td><td>${createButton}</td><td>${deleteButton}</td><td>${findButton}</td></tr>`;
+    return `<tr><td>${name}</td><td class="${layoutStyleClass}">${layoutStyle}</td><td>${productionStatus}</td><td>${changeStatus}</td><td>${createdAt}</td><td>${updatedAt}</td><td>${currentSpread}</td><td>${masterSpreadSelect}</td><td>${createButton}</td><td>${refreshButton}</td><td>${deleteButton}</td><td>${findButton}</td></tr>`;
   }).join("");
 
   tableBody.innerHTML = rowsHtml;
@@ -48,6 +49,15 @@ function renderDeleteButton(label) {
   }
 
   return `<button class="deleteLabelButton" data-label-id="${escapeHtml(label.labelId)}">Delete</button>`;
+}
+
+function renderRefreshButton(label) {
+  const hasCurrentSpread = typeof label.currentSpread === "string" && label.currentSpread.trim() !== "";
+  if (!hasCurrentSpread) {
+    return "";
+  }
+
+  return `<button class="refreshLabelButton" data-label-id="${escapeHtml(label.labelId)}">Refresh</button>`;
 }
 
 function renderFindButton(label) {
@@ -76,7 +86,7 @@ function renderEmptyLabelsTable(tableBody, message) {
     return;
   }
 
-  tableBody.innerHTML = `<tr><td class="emptyState" colspan="11">${escapeHtml(message)}</td></tr>`;
+  tableBody.innerHTML = `<tr><td class="emptyState" colspan="12">${escapeHtml(message)}</td></tr>`;
 }
 
 function escapeHtml(value) {

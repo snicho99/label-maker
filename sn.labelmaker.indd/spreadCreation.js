@@ -1,11 +1,13 @@
 const { app } = require("indesign");
+const FRAME_BINDING_KEY = "labelMakerTextBinding";
+const FRAME_BINDING_VERSION = "1.0.0";
 
 function createSpreadFromParent(parentName) {
   const doc = getActiveDocument();
   const parentSpread = getParentSpread(doc, parentName);
   const spread = doc.spreads.add();
   spread.appliedMaster = parentSpread;
-  console.log("[spreadCreation] Created spread:", spread);
+  overrideMasterTextFramesOnSpread(spread, parentSpread);
 
   return {
     parentName,
@@ -33,6 +35,103 @@ function focusSpreadByReference(spreadReference) {
   };
 }
 
+function populateSpreadFromLabel(spreadReference, labelData, labelId = "") {
+  const doc = getActiveDocument();
+  const spread = resolveSpreadReference(doc, spreadReference);
+  const textFrames = collectSpreadTextFrames(spread);
+  let replacedFrameCount = 0;
+  const frameBindings = [];
+  const previousEnableRedraw = getEnableRedrawPreference();
+
+  setEnableRedrawPreference(true);
+
+  try {
+    textFrames.forEach((textFrame) => {
+      const originalContents = typeof textFrame.contents === "string" ? textFrame.contents : "";
+      if (!originalContents || !originalContents.includes("{{")) {
+        return;
+      }
+
+      const populatedContents = replaceMustacheTokens(originalContents, labelData);
+      if (populatedContents === originalContents) {
+        return;
+      }
+
+      const bindingData = {
+        labelId,
+        templateText: originalContents,
+        lastRenderedText: populatedContents,
+        sourcePaths: extractMustachePaths(originalContents),
+        schemaVersion: FRAME_BINDING_VERSION,
+        frameReference: getTextFrameReference(textFrame),
+      };
+      writeTextFrameBinding(textFrame, bindingData);
+      textFrame.contents = populatedContents;
+      recomposeTextFrameStory(textFrame);
+      frameBindings.push(bindingData);
+      replacedFrameCount += 1;
+    });
+  } finally {
+    setEnableRedrawPreference(previousEnableRedraw);
+  }
+
+  return {
+    replacedFrameCount,
+    frameBindings,
+  };
+}
+
+function refreshSpreadBindings(spreadReference, labelData, labelId = "") {
+  const doc = getActiveDocument();
+  const spread = resolveSpreadReference(doc, spreadReference);
+  const textFrames = collectSpreadTextFrames(spread);
+  let refreshedFrameCount = 0;
+  const frameBindings = [];
+  const previousEnableRedraw = getEnableRedrawPreference();
+
+  setEnableRedrawPreference(true);
+
+  try {
+    textFrames.forEach((textFrame) => {
+      const binding = readTextFrameBinding(textFrame);
+      if (!binding) {
+        return;
+      }
+
+      if (labelId && binding.labelId && binding.labelId !== labelId) {
+        return;
+      }
+
+      const templateText = typeof binding.templateText === "string" ? binding.templateText : "";
+      if (!templateText || !templateText.includes("{{")) {
+        return;
+      }
+
+      const renderedText = replaceMustacheTokens(templateText, labelData);
+      const nextBinding = {
+        ...binding,
+        labelId: labelId || binding.labelId || "",
+        lastRenderedText: renderedText,
+        sourcePaths: extractMustachePaths(templateText),
+        schemaVersion: FRAME_BINDING_VERSION,
+        frameReference: binding.frameReference || getTextFrameReference(textFrame),
+      };
+      writeTextFrameBinding(textFrame, nextBinding);
+      textFrame.contents = renderedText;
+      recomposeTextFrameStory(textFrame);
+      frameBindings.push(nextBinding);
+      refreshedFrameCount += 1;
+    });
+  } finally {
+    setEnableRedrawPreference(previousEnableRedraw);
+  }
+
+  return {
+    refreshedFrameCount,
+    frameBindings,
+  };
+}
+
 function getSpreadDisplayLabelByReference(spreadReference) {
   const doc = getActiveDocument();
   const spread = resolveSpreadReference(doc, spreadReference);
@@ -51,6 +150,27 @@ function getSpreadDisplayLabelByReference(spreadReference) {
   }
 
   return spreadReference;
+}
+
+function overrideMasterTextFramesOnSpread(spread, parentSpread) {
+  if (!spread || !parentSpread || !spread.pages || !parentSpread.pages) {
+    return;
+  }
+
+  const pageCount = Math.min(spread.pages.length, parentSpread.pages.length);
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    const spreadPage = spread.pages.item(pageIndex);
+    const masterPage = parentSpread.pages.item(pageIndex);
+    const masterTextFrames = getCollectionItems(masterPage.textFrames);
+
+    masterTextFrames.forEach((masterTextFrame) => {
+      try {
+        masterTextFrame.override(spreadPage);
+      } catch (error) {
+        console.warn("[spreadCreation] Failed to override master text frame:", error);
+      }
+    });
+  }
 }
 
 function listParentSpreadNames() {
@@ -93,6 +213,26 @@ function getActiveLayoutWindow() {
   }
 
   return app.activeWindow;
+}
+
+function getEnableRedrawPreference() {
+  try {
+    return app && app.scriptPreferences
+      ? app.scriptPreferences.enableRedraw
+      : undefined;
+  } catch (error) {
+    return undefined;
+  }
+}
+
+function setEnableRedrawPreference(value) {
+  try {
+    if (app && app.scriptPreferences && typeof value !== "undefined") {
+      app.scriptPreferences.enableRedraw = value;
+    }
+  } catch (error) {
+    console.warn("[spreadCreation] Unable to update enableRedraw:", error);
+  }
 }
 
 function getParentSpread(doc, parentName) {
@@ -148,6 +288,155 @@ function resolveSpreadReference(doc, spreadReference) {
   return doc.spreads.itemByName(normalizedReference);
 }
 
+function collectSpreadTextFrames(spread) {
+  const framesById = new Map();
+  const spreadPages = getCollectionItems(spread.pages);
+
+  spreadPages.forEach((page) => {
+    const pageTextFrames = getCollectionItems(page.textFrames);
+    pageTextFrames.forEach((textFrame) => {
+      const frameKey = typeof textFrame.id !== "undefined" ? String(textFrame.id) : `${framesById.size}`;
+      if (!framesById.has(frameKey)) {
+        framesById.set(frameKey, textFrame);
+      }
+    });
+  });
+  return Array.from(framesById.values());
+}
+
+function getCollectionItems(collection) {
+  if (!collection || typeof collection.length !== "number") {
+    return [];
+  }
+
+  const items = [];
+  for (let index = 0; index < collection.length; index += 1) {
+    items.push(collection.item(index));
+  }
+
+  return items;
+}
+
+function recomposeTextFrameStory(textFrame) {
+  try {
+    if (textFrame && textFrame.parentStory && typeof textFrame.parentStory.recompose === "function") {
+      textFrame.parentStory.recompose();
+    }
+  } catch (error) {
+    console.warn("[spreadCreation] Unable to recompose text frame story:", error);
+  }
+}
+
+function replaceMustacheTokens(contents, labelData) {
+  const tokenMatches = Array.from(contents.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g));
+  if (tokenMatches.length === 0) {
+    return contents;
+  }
+
+  let populatedContents = contents;
+  tokenMatches.forEach((match) => {
+    const matchedToken = match[0];
+    const pathExpression = match[1];
+    const resolution = resolveLabelDataPath(labelData, pathExpression);
+    if (!resolution.found) {
+      console.error(`[spreadCreation] No matching label property found for moustache path: ${String(pathExpression).trim()}`);
+      return;
+    }
+
+    const replacementValue = resolution.value === null
+      ? ""
+      : String(resolution.value);
+
+    populatedContents = populatedContents.split(matchedToken).join(replacementValue);
+  });
+
+  return populatedContents;
+}
+
+function extractMustachePaths(contents) {
+  return Array.from(
+    new Set(
+      Array.from(contents.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g))
+        .map((match) => String(match[1]).trim())
+        .filter((value) => value !== ""),
+    ),
+  );
+}
+
+function resolveLabelDataPath(rootValue, pathExpression) {
+  if (!rootValue || typeof rootValue !== "object") {
+    return {
+      found: false,
+      value: undefined,
+    };
+  }
+
+  const pathSegments = String(pathExpression)
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment !== "");
+
+  let currentValue = rootValue;
+  for (const segment of pathSegments) {
+    if (!currentValue || typeof currentValue !== "object" || !(segment in currentValue)) {
+      return {
+        found: false,
+        value: undefined,
+      };
+    }
+
+    currentValue = currentValue[segment];
+  }
+
+  return {
+    found: true,
+    value: currentValue,
+  };
+}
+
+function readTextFrameBinding(textFrame) {
+  if (!textFrame || typeof textFrame.extractLabel !== "function") {
+    return null;
+  }
+
+  const raw = textFrame.extractLabel(FRAME_BINDING_KEY) || "";
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch (error) {
+    console.warn("[spreadCreation] Invalid text frame binding JSON:", error);
+    return null;
+  }
+}
+
+function writeTextFrameBinding(textFrame, bindingData) {
+  if (!textFrame || typeof textFrame.insertLabel !== "function") {
+    return;
+  }
+
+  textFrame.insertLabel(FRAME_BINDING_KEY, JSON.stringify(bindingData));
+}
+
+function getTextFrameReference(textFrame) {
+  if (!textFrame || typeof textFrame !== "object") {
+    return "";
+  }
+
+  if (typeof textFrame.id !== "undefined" && textFrame.id !== null) {
+    return String(textFrame.id);
+  }
+
+  if (typeof textFrame.index === "number") {
+    return `index:${textFrame.index}`;
+  }
+
+  return "";
+}
+
 module.exports = {
   createSpreadFromParent,
   deleteSpreadByReference,
@@ -155,4 +444,6 @@ module.exports = {
   getActiveDocumentSignature,
   getSpreadDisplayLabelByReference,
   listParentSpreadNames,
+  populateSpreadFromLabel,
+  refreshSpreadBindings,
 };

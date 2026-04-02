@@ -61,16 +61,6 @@ function initializeUi(rootNode) {
         console.warn("Reload JSON button not found during UI init");
     }
 
-    const applyLoadedChangesButton = rootNode.querySelector("#applyLoadedChanges");
-    if (applyLoadedChangesButton) {
-        applyLoadedChangesButton.onclick = () => {
-            handleApplyLoadedChangesClick(rootNode).catch((error) => {
-                console.error("Apply Loaded Changes click handler failed:", error);
-            });
-        };
-    } else {
-        console.warn("Apply Loaded Changes button not found during UI init");
-    }
 }
 
 function startActiveDocumentWatcher() {
@@ -175,28 +165,6 @@ async function handleReloadJsonClick(rootNode) {
     }
 }
 
-async function handleApplyLoadedChangesClick(rootNode) {
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = "Action: applying loaded changes...";
-    }
-
-    try {
-        const result = await fileManager.applyLoadedChanges();
-        if (actionStatusEl) {
-            actionStatusEl.textContent = `Action: ${result.createdCount} created, ${result.updatedCount} updated, ${result.unchangedCount} unchanged`;
-        }
-    } catch (err) {
-        console.error("Apply Loaded Changes error:", err);
-        if (actionStatusEl) {
-            actionStatusEl.textContent = `Action: error (${err.message})`;
-        }
-    } finally {
-        await updateStatus(rootNode);
-    }
-}
-
 async function updateStatus(rootNode = currentPanelNode || document) {
     const statusEl = getElement(rootNode, "#jsonStatus");
     const datasetStatusEl = getElement(rootNode, "#datasetStatus");
@@ -205,7 +173,6 @@ async function updateStatus(rootNode = currentPanelNode || document) {
     const actionStatusEl = getElement(rootNode, "#actionStatus");
     const labelsTableBody = getElement(rootNode, "#labelsTableBody");
     const reloadButton = getElement(rootNode, "#reloadJson");
-    const applyLoadedChangesButton = getElement(rootNode, "#applyLoadedChanges");
 
     if (!statusEl) {
         console.warn("Status element not found");
@@ -232,16 +199,13 @@ async function updateStatus(rootNode = currentPanelNode || document) {
         labelsTable.renderLabelsTable(labelsTableBody, fileManager.getDisplayLabels(), parentSpreadNames);
         bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames);
         bindCreateLabelHandlers(rootNode);
+        bindRefreshLabelHandlers(rootNode);
         bindDeleteLabelHandlers(rootNode);
         bindFindLabelHandlers(rootNode);
         const token = fileManager.getLinkedJsonToken();
-        const parsedDataset = fileManager.getParsedDataset();
 
         if (reloadButton) {
             reloadButton.style.display = token ? "inline-block" : "none";
-        }
-        if (applyLoadedChangesButton) {
-            applyLoadedChangesButton.style.display = parsedDataset ? "inline-block" : "none";
         }
     } catch (e) {
         console.error("updateStatus failed:", e);
@@ -261,9 +225,6 @@ async function updateStatus(rootNode = currentPanelNode || document) {
         labelsTable.renderEmptyLabelsTable(labelsTableBody, "Unable to display labels.");
         if (reloadButton) {
             reloadButton.style.display = "inline-block";
-        }
-        if (applyLoadedChangesButton) {
-            applyLoadedChangesButton.style.display = "none";
         }
     }
 }
@@ -343,10 +304,25 @@ async function handleCreateLabelClick(rootNode, buttonEl) {
     const result = fileManager.createLabel(labelId);
 
     if (actionStatusEl) {
-        actionStatusEl.textContent = `Action: created label on spread ${result.currentSpread} using ${result.masterSpread}`;
+        actionStatusEl.textContent = `Action: created label on spread ${result.currentSpread} using ${result.masterSpread} and populated ${result.populatedFrameCount} text frame(s)`;
     }
 
     await updateStatus(rootNode);
+}
+
+function bindRefreshLabelHandlers(rootNode) {
+    if (!rootNode || !rootNode.querySelectorAll) {
+        return;
+    }
+
+    const buttons = rootNode.querySelectorAll(".refreshLabelButton");
+    buttons.forEach((buttonEl) => {
+        buttonEl.onclick = () => {
+            handleRefreshLabelClick(rootNode, buttonEl).catch((error) => {
+                console.error("Refresh label click failed:", error);
+            });
+        };
+    });
 }
 
 async function handleDeleteLabelClick(rootNode, buttonEl) {
@@ -365,6 +341,27 @@ async function handleDeleteLabelClick(rootNode, buttonEl) {
 
     if (actionStatusEl) {
         actionStatusEl.textContent = `Action: deleted spread ${result.deletedSpreadReference}`;
+    }
+
+    await updateStatus(rootNode);
+}
+
+async function handleRefreshLabelClick(rootNode, buttonEl) {
+    const actionStatusEl = getElement(rootNode, "#actionStatus");
+    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+
+    if (!labelId) {
+        throw new Error("Missing label id for refresh action.");
+    }
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = "Action: refreshing bound text frames...";
+    }
+
+    const result = fileManager.refreshLabel(labelId);
+
+    if (actionStatusEl) {
+        actionStatusEl.textContent = `Action: refreshed ${result.refreshedFrameCount} bound text frame(s) on spread ${result.currentSpread}`;
     }
 
     await updateStatus(rootNode);

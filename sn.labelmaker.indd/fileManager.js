@@ -147,14 +147,25 @@ function createLabel(labelId) {
     throw new Error("Select a valid master spread before creating a label.");
   }
 
+  const sourceSnapshot = _getEffectiveLabelSnapshot(labelId, labelState);
   const now = new Date().toISOString();
   const creationResult = spreadCreation.createSpreadFromParent(labelState.masterSpread);
+  const populationResult = spreadCreation.populateSpreadFromLabel(
+    creationResult.spreadReference,
+    sourceSnapshot,
+    labelId,
+  );
 
   if (!labelState.createdAt) {
     labelState.createdAt = now;
   }
   labelState.updatedAt = now;
   labelState.currentSpread = creationResult.spreadReference;
+  labelState.textFrameBindings = Array.isArray(populationResult.frameBindings)
+    ? populationResult.frameBindings
+    : [];
+  labelState.lastSourceSnapshot = sourceSnapshot;
+  labelState.lastLaidOutSnapshot = _createLabelSnapshot(sourceSnapshot);
   _writeDocumentLabelState(documentState);
   _refreshDatasetDisplayState(documentState);
 
@@ -162,6 +173,45 @@ function createLabel(labelId) {
     createdAt: labelState.createdAt,
     currentSpread: labelState.currentSpread,
     masterSpread: labelState.masterSpread,
+    populatedFrameCount: populationResult.replacedFrameCount,
+  };
+}
+
+function refreshLabel(labelId) {
+  if (typeof labelId !== "string" || labelId.trim() === "") {
+    throw new Error("A valid labelId is required.");
+  }
+
+  const documentState = _readDocumentLabelState();
+  const labelState = documentState.labels[labelId];
+  if (!labelState) {
+    throw new Error("Persisted label state was not found.");
+  }
+
+  const spreadReference = typeof labelState.currentSpread === "string" ? labelState.currentSpread.trim() : "";
+  if (!spreadReference) {
+    throw new Error("This label does not have an associated spread.");
+  }
+
+  const sourceSnapshot = _getEffectiveLabelSnapshot(labelId, labelState);
+
+  const refreshResult = spreadCreation.refreshSpreadBindings(
+    spreadReference,
+    sourceSnapshot,
+    labelId,
+  );
+  labelState.updatedAt = new Date().toISOString();
+  labelState.textFrameBindings = Array.isArray(refreshResult.frameBindings)
+    ? refreshResult.frameBindings
+    : Array.isArray(labelState.textFrameBindings) ? labelState.textFrameBindings : [];
+  labelState.lastSourceSnapshot = sourceSnapshot;
+  labelState.lastLaidOutSnapshot = _createLabelSnapshot(sourceSnapshot);
+  _writeDocumentLabelState(documentState);
+  _refreshDatasetDisplayState(documentState);
+
+  return {
+    refreshedFrameCount: refreshResult.refreshedFrameCount,
+    currentSpread: spreadReference,
   };
 }
 
@@ -184,6 +234,7 @@ function deleteLabel(labelId) {
   spreadCreation.deleteSpreadByReference(spreadReference);
   labelState.currentSpread = "";
   labelState.updatedAt = new Date().toISOString();
+  labelState.lastLaidOutSnapshot = null;
   _writeDocumentLabelState(documentState);
   _refreshDatasetDisplayState(documentState);
 
@@ -414,7 +465,7 @@ async function _loadAndValidateLinkedJson() {
   }
 
   const validation = _validateJsonData(parsed);
-  const documentState = _readDocumentLabelState();
+  const documentState = _synchronizeDocumentStateWithParsedData(parsed, _readDocumentLabelState());
   const comparison = _buildLabelComparison(parsed, documentState);
   const summary = _buildDatasetSummary(parsed, validation, comparison);
   const datasetMessage = `Dataset: loaded (${validation.labelCount} labels)`;
@@ -591,6 +642,9 @@ function _normalizeDocumentLabelMap(labels) {
             ...labelState,
             currentSpread: typeof labelState.currentSpread === "string" ? labelState.currentSpread : "",
             masterSpread: _normalizeMasterSpreadValue(labelState.masterSpread),
+            textFrameBindings: Array.isArray(labelState.textFrameBindings) ? labelState.textFrameBindings : [],
+            lastLaidOutSnapshot: _normalizeOptionalLabelSnapshot(labelState.lastLaidOutSnapshot),
+            lastSourceSnapshot: _normalizeOptionalLabelSnapshot(labelState.lastSourceSnapshot),
           }
         : {
             labelId,
@@ -598,6 +652,8 @@ function _normalizeDocumentLabelMap(labels) {
             updatedAt: "",
             currentSpread: "",
             masterSpread: null,
+            textFrameBindings: [],
+            lastLaidOutSnapshot: null,
             lastSourceSnapshot: null,
           };
 
@@ -632,11 +688,81 @@ function _getChangeStatus(existingState, snapshot) {
     return "new";
   }
 
-  if (!_snapshotsEqual(existingState.lastSourceSnapshot, snapshot)) {
+  if (!existingState.currentSpread) {
+    return "new";
+  }
+
+  if (!_snapshotsEqual(existingState.lastLaidOutSnapshot, snapshot)) {
     return "changed";
   }
 
   return "unchanged";
+}
+
+function _normalizeOptionalLabelSnapshot(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+function _getEffectiveLabelSnapshot(labelId, labelState) {
+  if (labelState.lastSourceSnapshot && typeof labelState.lastSourceSnapshot === "object" && !Array.isArray(labelState.lastSourceSnapshot)) {
+    return labelState.lastSourceSnapshot;
+  }
+
+  if (datasetState.parsedData && Array.isArray(datasetState.parsedData.labels)) {
+    const matchingLabel = datasetState.parsedData.labels.find((label) => {
+      return label
+        && label.meta
+        && typeof label.meta === "object"
+        && label.meta.labelId === labelId;
+    });
+
+    if (matchingLabel) {
+      return _createLabelSnapshot(matchingLabel);
+    }
+  }
+
+  throw new Error("This label does not have a valid loaded source snapshot. Reload JSON first.");
+}
+
+function _synchronizeDocumentStateWithParsedData(parsedData, documentState) {
+  const now = new Date().toISOString();
+
+  parsedData.labels.forEach((label) => {
+    const labelId = label.meta.labelId;
+    const snapshot = _createLabelSnapshot(label);
+    const existingState = documentState.labels[labelId];
+
+    if (!existingState) {
+      documentState.labels[labelId] = {
+        labelId,
+        createdAt: "",
+        updatedAt: now,
+        currentSpread: "",
+        masterSpread: null,
+        textFrameBindings: [],
+        lastLaidOutSnapshot: null,
+        lastSourceSnapshot: snapshot,
+      };
+      return;
+    }
+
+    documentState.labels[labelId] = {
+      ...existingState,
+      updatedAt: now,
+      currentSpread: typeof existingState.currentSpread === "string" ? existingState.currentSpread : "",
+      masterSpread: _normalizeMasterSpreadValue(existingState.masterSpread),
+      textFrameBindings: Array.isArray(existingState.textFrameBindings) ? existingState.textFrameBindings : [],
+      lastLaidOutSnapshot: _normalizeOptionalLabelSnapshot(existingState.lastLaidOutSnapshot),
+      lastSourceSnapshot: snapshot,
+    };
+  });
+
+  _writeDocumentLabelState(documentState);
+  return documentState;
 }
 
 function _createLabelSnapshot(label) {
@@ -690,61 +816,6 @@ async function linkExistingJsonFile(file) {
   return getLinkedJsonToken();
 }
 
-async function applyLoadedChanges() {
-  if (!datasetState.parsedData || !Array.isArray(datasetState.parsedData.labels)) {
-    throw new Error("Load JSON before applying changes.");
-  }
-
-  const documentState = _readDocumentLabelState();
-  const now = new Date().toISOString();
-  let createdCount = 0;
-  let updatedCount = 0;
-  let unchangedCount = 0;
-
-  datasetState.parsedData.labels.forEach((label) => {
-    const labelId = label.meta.labelId;
-    const snapshot = _createLabelSnapshot(label);
-    const existingState = documentState.labels[labelId];
-
-    if (!existingState) {
-      documentState.labels[labelId] = {
-        labelId,
-        createdAt: now,
-        updatedAt: now,
-        currentSpread: "",
-        masterSpread: null,
-        lastSourceSnapshot: snapshot,
-      };
-      createdCount += 1;
-      return;
-    }
-
-    if (!_snapshotsEqual(existingState.lastSourceSnapshot, snapshot)) {
-      documentState.labels[labelId] = {
-        ...existingState,
-        updatedAt: now,
-        currentSpread: typeof existingState.currentSpread === "string" ? existingState.currentSpread : "",
-        masterSpread: _normalizeMasterSpreadValue(existingState.masterSpread),
-        lastSourceSnapshot: snapshot,
-      };
-      updatedCount += 1;
-      return;
-    }
-
-    unchangedCount += 1;
-  });
-
-  _writeDocumentLabelState(documentState);
-  await _loadAndValidateLinkedJson();
-
-  return {
-    createdCount,
-    updatedCount,
-    unchangedCount,
-    totalCount: datasetState.parsedData.labels.length,
-  };
-}
-
 module.exports = {
   getStatusString,
   getDatasetStatusString,
@@ -755,12 +826,11 @@ module.exports = {
   getLinkedJsonToken,
   chooseJsonFile,
   linkExistingJsonFile,
-  applyLoadedChanges,
-  createMissingLabels: applyLoadedChanges,
   reloadJson,
   reconcileMasterSpreads,
   setLabelMasterSpread,
   createLabel,
   deleteLabel,
   findLabel,
+  refreshLabel,
 };

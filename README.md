@@ -13,7 +13,10 @@ This repository is the foundation snapshot for that workflow. The InDesign plugi
 - The InDesign plugin prototype lives in `sn.labelmaker.indd/`.
 - It can associate the active InDesign document with a chosen JSON file and persist that association in the document using the `jsonDataSource` label key.
 - It can reload the linked JSON file, parse it, and surface basic status in the panel.
+- Reload immediately updates the plugin's internal label model, while laid-out spread content remains unchanged until a label is created or refreshed.
 - It can persist per-label internal state in the InDesign document, including chosen master spreads and created spread references.
+- It can persist per-text-frame template bindings on created spreads so text can be regenerated after moustache placeholders are replaced.
+- It can also copy replaced text-box template content into the persisted per-label internal state for inspection and reuse.
 - It now includes a labels table with per-row create, delete, and find actions for spread-linked labels.
 - The broader parser, schema, and full CRUD sync flow are planned but not implemented yet.
 
@@ -83,12 +86,18 @@ The InDesign plugin will continue to use the `jsonDataSource` document label key
 - [x] persist plugin-managed label state inside the InDesign document
 - [x] track per-label plugin metadata such as `createdAt` and `updatedAt` inside document state only
 - [x] compare reloaded JSON against persisted document state to surface changes since last load
-- [x] apply loaded JSON changes back into persisted plugin-managed label state
+- [x] update persisted plugin-managed label state immediately when JSON is reloaded
 - [x] display persisted plugin timestamps in a human-readable "time ago" format in the labels table
 - [x] document the internal persisted InDesign label state schema
 - [x] allow per-label master spread selection from available document master spreads
 - [x] clear invalid persisted master spread selections when the active document changes
 - [x] create a spread from a selected master spread and persist the created spread reference
+- [x] populate created spread text frames from moustache-style label data placeholders
+- [x] persist text-frame template bindings so populated spreads can be refreshed
+- [x] store replaced text-box template content on the persisted label state
+- [x] refresh a created spread's bound text frames from stored templates and the current label snapshot
+- [x] keep loaded JSON state separate from laid-out spread state so change badges reflect what is actually on the page
+- [x] leave unmatched moustache placeholders visible and log them for template debugging
 - [x] delete a created spread and clear the persisted spread reference
 - [x] locate and focus a created spread from the labels table
 - [ ] reserve full content update behavior for a later milestone once layout and identity rules are locked

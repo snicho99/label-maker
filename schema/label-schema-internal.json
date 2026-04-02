@@ -36,6 +36,8 @@
         "updatedAt",
         "currentSpread",
         "masterSpread",
+        "textFrameBindings",
+        "lastLaidOutSnapshot",
         "lastSourceSnapshot"
       ],
       "properties": {
@@ -44,12 +46,28 @@
           "format": "uuid"
         },
         "createdAt": {
-          "type": "string",
-          "format": "date-time"
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "string",
+              "const": ""
+            }
+          ]
         },
         "updatedAt": {
-          "type": "string",
-          "format": "date-time"
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "string",
+              "const": ""
+            }
+          ]
         },
         "currentSpread": {
           "type": "string"
@@ -60,8 +78,67 @@
             "null"
           ]
         },
+        "textFrameBindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/textFrameBinding"
+          }
+        },
+        "lastLaidOutSnapshot": {
+          "oneOf": [
+            {
+              "$ref": "label-schema.json#/$defs/label"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "lastSourceSnapshot": {
-          "$ref": "label-schema.json#/$defs/label"
+          "oneOf": [
+            {
+              "$ref": "label-schema.json#/$defs/label"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "textFrameBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "labelId",
+        "templateText",
+        "lastRenderedText",
+        "sourcePaths",
+        "schemaVersion",
+        "frameReference"
+      ],
+      "properties": {
+        "labelId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "templateText": {
+          "type": "string"
+        },
+        "lastRenderedText": {
+          "type": "string"
+        },
+        "sourcePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schemaVersion": {
+          "type": "string"
+        },
+        "frameReference": {
+          "type": "string"
         }
       }
     }
