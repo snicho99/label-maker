@@ -1,36 +1,156 @@
-function renderLabelsTable(tableBody, labels, parentSpreadNames = []) {
-  if (!tableBody) {
+const OPTIONAL_COLUMN_KEYS = {
+  approval: "approval",
+  layoutStyle: "layoutStyle",
+  section: "section",
+  subSection: "subSection",
+  labelId: "labelId",
+};
+
+function renderLabelsTable(tableHead, tableBody, labels, parentSpreadNames = [], visibleColumns = {}) {
+  if (!tableHead || !tableBody) {
     return;
   }
 
+  const columns = getColumnDefinitions(parentSpreadNames, visibleColumns);
+  renderTableHeader(tableHead, columns);
+
   if (!Array.isArray(labels) || labels.length === 0) {
-    renderEmptyLabelsTable(tableBody, "No labels loaded.");
+    renderEmptyLabelsTable(tableBody, "No labels loaded.", columns.length);
     return;
   }
 
   const parentSpreadNameSet = new Set(parentSpreadNames);
 
   const rowsHtml = labels.map((label) => {
-    const name = escapeHtml(label.labelName);
-    const layoutStyle = escapeHtml(label.layoutStyle);
-    const productionStatus = escapeHtml(label.productionStatus);
-    const changeStatus = escapeHtml(label.changeStatus);
-    const createdAt = escapeHtml(formatTimestamp(label.createdAt));
-    const updatedAt = escapeHtml(formatTimestamp(label.updatedAt));
-    const currentSpread = escapeHtml(label.currentSpread || "");
-    const layoutStyleClass = parentSpreadNameSet.has(label.layoutStyle)
-      ? "layoutStyleMatch"
-      : "";
-    const masterSpreadSelect = renderMasterSpreadSelect(label, parentSpreadNames);
-    const createButton = renderCreateButton(label);
-    const refreshButton = renderRefreshButton(label);
-    const deleteButton = renderDeleteButton(label);
-    const findButton = renderFindButton(label);
-
-    return `<tr><td>${name}</td><td class="${layoutStyleClass}">${layoutStyle}</td><td>${productionStatus}</td><td>${changeStatus}</td><td>${createdAt}</td><td>${updatedAt}</td><td>${currentSpread}</td><td>${masterSpreadSelect}</td><td>${createButton}</td><td>${refreshButton}</td><td>${deleteButton}</td><td>${findButton}</td></tr>`;
+    const cellsHtml = columns.map((column) => renderCell(column, label, parentSpreadNameSet, parentSpreadNames)).join("");
+    return `<tr>${cellsHtml}</tr>`;
   }).join("");
 
   tableBody.innerHTML = rowsHtml;
+}
+
+function renderTableHeader(tableHead, columns) {
+  if (!tableHead) {
+    return;
+  }
+
+  const headersHtml = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("");
+  tableHead.innerHTML = `<tr>${headersHtml}</tr>`;
+}
+
+function renderEmptyLabelsTable(tableBody, message, columnCount = 12) {
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = `<tr><td class="emptyState" colspan="${columnCount}">${escapeHtml(message)}</td></tr>`;
+}
+
+function getColumnDefinitions(parentSpreadNames, visibleColumns) {
+  const columns = [];
+
+  if (isColumnVisible(visibleColumns, OPTIONAL_COLUMN_KEYS.section)) {
+    columns.push({ key: "section", label: "Section" });
+  }
+
+  if (isColumnVisible(visibleColumns, OPTIONAL_COLUMN_KEYS.subSection)) {
+    columns.push({ key: "subSection", label: "Subsection" });
+  }
+
+  if (isColumnVisible(visibleColumns, OPTIONAL_COLUMN_KEYS.labelId)) {
+    columns.push({ key: "labelId", label: "ID" });
+  }
+
+  columns.push({ key: "name", label: "Name" });
+
+  if (isColumnVisible(visibleColumns, OPTIONAL_COLUMN_KEYS.approval)) {
+    columns.push({ key: "approval", label: "Approval" });
+  }
+
+  columns.push(
+    { key: "status", label: "Status" },
+    { key: "created", label: "Created" },
+    { key: "updated", label: "Updated" }
+  );
+
+  if (isColumnVisible(visibleColumns, OPTIONAL_COLUMN_KEYS.layoutStyle)) {
+    columns.push({
+      key: "layoutStyle",
+      label: "Layout Style",
+      classNameFor: (label, parentSpreadNameSet) => parentSpreadNameSet.has(label.layoutStyle) ? "layoutStyleMatch" : "",
+    });
+  }
+
+  columns.push(
+    {
+      key: "masterSpread",
+      label: "Master Spread",
+      render: (label) => renderMasterSpreadSelect(label, parentSpreadNames),
+    },
+    {
+      key: "create",
+      label: "Create",
+      render: (label) => renderCreateButton(label),
+    },
+    {
+      key: "refresh",
+      label: "Refresh",
+      render: (label) => renderRefreshButton(label),
+    },
+    {
+      key: "find",
+      label: "Find",
+      render: (label) => renderFindButton(label),
+    },
+    { key: "currentSpread", label: "#" },
+    {
+      key: "delete",
+      label: "Delete",
+      render: (label) => renderDeleteButton(label),
+    }
+  );
+
+  return columns;
+}
+
+function renderCell(column, label, parentSpreadNameSet, parentSpreadNames) {
+  const className = typeof column.classNameFor === "function"
+    ? column.classNameFor(label, parentSpreadNameSet, parentSpreadNames)
+    : "";
+  const classAttribute = className ? ` class="${escapeHtml(className)}"` : "";
+
+  if (typeof column.render === "function") {
+    return `<td${classAttribute}>${column.render(label, parentSpreadNames)}</td>`;
+  }
+
+  return `<td${classAttribute}>${escapeHtml(getColumnValue(column.key, label))}</td>`;
+}
+
+function getColumnValue(columnKey, label) {
+  switch (columnKey) {
+    case "name":
+      return label.labelName;
+    case "labelId":
+      return label.labelId;
+    case "approval":
+      return label.productionStatus;
+    case "status":
+      return label.changeStatus;
+    case "created":
+      return formatTimestamp(label.createdAt);
+    case "updated":
+      return formatTimestamp(label.updatedAt);
+    case "layoutStyle":
+      return label.layoutStyle;
+    case "section":
+      return label.section || "";
+    case "subSection":
+      return label.subSection || "";
+    case "currentSpread":
+      return label.currentSpread || "";
+    default:
+      return "";
+  }
 }
 
 function renderCreateButton(label) {
@@ -81,12 +201,8 @@ function renderMasterSpreadSelect(label, parentSpreadNames) {
   return `<select class="masterSpreadSelect" data-label-id="${escapeHtml(label.labelId)}">${options}</select>`;
 }
 
-function renderEmptyLabelsTable(tableBody, message) {
-  if (!tableBody) {
-    return;
-  }
-
-  tableBody.innerHTML = `<tr><td class="emptyState" colspan="12">${escapeHtml(message)}</td></tr>`;
+function isColumnVisible(visibleColumns, columnKey) {
+  return visibleColumns && visibleColumns[columnKey] === true;
 }
 
 function escapeHtml(value) {
@@ -149,6 +265,7 @@ function formatTimestamp(value) {
 }
 
 module.exports = {
+  OPTIONAL_COLUMN_KEYS,
   renderLabelsTable,
   renderEmptyLabelsTable,
 };

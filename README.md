@@ -78,6 +78,7 @@ The InDesign plugin will continue to use the `jsonDataSource` document label key
 - [x] show basic dataset information such as label count and source
 - [x] add a labels table view in the plugin UI
 - [x] split configuration controls and the labels table into separate panels
+- [x] make selected label table metadata columns configurable from the config panel
 - [~] stabilize the InDesign file picker / JSON linking flow
 
 ### Phase 3: first sync workflow

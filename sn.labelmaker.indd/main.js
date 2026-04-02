@@ -7,6 +7,13 @@ let configPanelNode = null;
 let labelTablePanelNode = null;
 let activeDocumentPollInterval = null;
 let lastActiveDocumentSignature = "no-document";
+const columnVisibility = {
+  approval: true,
+  layoutStyle: true,
+  section: false,
+  subSection: false,
+  labelId: false,
+};
 
 console.log("[labelmaker] main.js loaded");
 
@@ -109,6 +116,8 @@ function initializeConfigPanel(rootNode) {
       });
     };
   }
+
+  bindColumnVisibilityHandlers(rootNode);
 
   rootNode.setAttribute("data-config-initialized", "true");
   console.log("[labelmaker] config panel initialized");
@@ -231,6 +240,7 @@ async function updateConfigPanel(rootNode) {
     if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
       actionStatusEl.textContent = "Action: none";
     }
+    syncColumnVisibilityCheckboxes(rootNode);
 
     const token = fileManager.getLinkedJsonToken();
     if (reloadButton) {
@@ -258,9 +268,10 @@ async function updateConfigPanel(rootNode) {
 }
 
 async function updateLabelTablePanel(rootNode) {
+  const labelsTableHead = getElement(rootNode, "#labelsTableHead");
   const labelsTableBody = getElement(rootNode, "#labelsTableBody");
-  if (!labelsTableBody) {
-    console.warn("[labelmaker] updateLabelTablePanel aborted because #labelsTableBody was not found", describeNode(rootNode));
+  if (!labelsTableHead || !labelsTableBody) {
+    console.warn("[labelmaker] updateLabelTablePanel aborted because table head/body was not found", describeNode(rootNode));
     return;
   }
 
@@ -277,7 +288,7 @@ async function updateLabelTablePanel(rootNode) {
     console.log("[labelmaker] rendering labels table", {
       labelCount: displayLabels.length,
     });
-    labelsTable.renderLabelsTable(labelsTableBody, displayLabels, parentSpreadNames);
+    labelsTable.renderLabelsTable(labelsTableHead, labelsTableBody, displayLabels, parentSpreadNames, columnVisibility);
     bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames);
     bindCreateLabelHandlers(rootNode);
     bindRefreshLabelHandlers(rootNode);
@@ -287,6 +298,21 @@ async function updateLabelTablePanel(rootNode) {
     console.error("updateLabelTablePanel failed:", error);
     labelsTable.renderEmptyLabelsTable(labelsTableBody, "Unable to display labels.");
   }
+}
+
+function bindColumnVisibilityHandlers(rootNode) {
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
+
+  const checkboxes = rootNode.querySelectorAll(".columnVisibilityToggle");
+  checkboxes.forEach((checkboxEl) => {
+    checkboxEl.onchange = () => {
+      handleColumnVisibilityChange(checkboxEl).catch((error) => {
+        console.error("Column visibility change failed:", error);
+      });
+    };
+  });
 }
 
 function bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames) {
@@ -435,6 +461,16 @@ async function handleMasterSpreadChange(selectEl, parentSpreadNames) {
   await refreshVisiblePanels();
 }
 
+async function handleColumnVisibilityChange(checkboxEl) {
+  const columnKey = checkboxEl ? checkboxEl.getAttribute("data-column-key") : "";
+  if (!columnKey || !Object.prototype.hasOwnProperty.call(columnVisibility, columnKey)) {
+    throw new Error("Missing or invalid column key for visibility change.");
+  }
+
+  columnVisibility[columnKey] = Boolean(checkboxEl.checked);
+  await refreshVisiblePanels();
+}
+
 function setConfigActionStatus(message) {
   const actionStatusEl = getElement(configPanelNode, "#actionStatus");
   if (actionStatusEl) {
@@ -449,6 +485,14 @@ function createConfigPanelContent() {
     <div class="manageActions">
       <button id="chooseJson">Choose JSON File</button>
       <button id="reloadJson" style="display:none;">Reload JSON</button>
+    </div>
+    <div class="columnVisibilityGroup">
+      <p>Visible columns</p>
+      <label><input type="checkbox" class="columnVisibilityToggle" data-column-key="approval" checked="checked"> Approval</label>
+      <label><input type="checkbox" class="columnVisibilityToggle" data-column-key="layoutStyle" checked="checked"> Layout Style</label>
+      <label><input type="checkbox" class="columnVisibilityToggle" data-column-key="section"> Section</label>
+      <label><input type="checkbox" class="columnVisibilityToggle" data-column-key="subSection"> Subsection</label>
+      <label><input type="checkbox" class="columnVisibilityToggle" data-column-key="labelId"> Label ID</label>
     </div>
     <p id="jsonStatus">Status: unlinked</p>
     <p id="datasetStatus">Dataset: not loaded</p>
@@ -465,22 +509,7 @@ function createLabelTablePanelContent() {
   panel.innerHTML = `
     <div class="tableWrap">
       <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Layout Style</th>
-            <th>Production Status</th>
-            <th>Change</th>
-            <th>Created</th>
-            <th>Updated</th>
-            <th>Current Spread</th>
-            <th>Master Spread</th>
-            <th>Create</th>
-            <th>Refresh</th>
-            <th>Delete</th>
-            <th>Find</th>
-          </tr>
-        </thead>
+        <thead id="labelsTableHead"></thead>
         <tbody id="labelsTableBody">
           <tr>
             <td class="emptyState" colspan="12">No labels loaded.</td>
@@ -490,6 +519,20 @@ function createLabelTablePanelContent() {
     </div>
   `;
   return panel;
+}
+
+function syncColumnVisibilityCheckboxes(rootNode) {
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
+
+  const checkboxes = rootNode.querySelectorAll(".columnVisibilityToggle");
+  checkboxes.forEach((checkboxEl) => {
+    const columnKey = checkboxEl.getAttribute("data-column-key");
+    if (columnKey && Object.prototype.hasOwnProperty.call(columnVisibility, columnKey)) {
+      checkboxEl.checked = Boolean(columnVisibility[columnKey]);
+    }
+  });
 }
 
 function describePanelArg(panelArg) {

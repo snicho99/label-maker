@@ -593,6 +593,8 @@ function _buildLabelComparison(data, documentState) {
     displayLabels.push({
       labelId,
       labelName: label.meta.labelName,
+      section: label.meta.section,
+      subSection: label.meta.subSection,
       layoutStyle: label.meta.layoutStyle,
       productionStatus: label.meta.productionStatus,
       changeStatus,
@@ -623,6 +625,8 @@ function _buildPersistedDisplayLabels(documentState) {
     return {
       labelId: labelState.labelId || meta.labelId || "",
       labelName: meta.labelName || "Unnamed label",
+      section: meta.section || "",
+      subSection: meta.subSection || "",
       layoutStyle: meta.layoutStyle || "Unknown",
       productionStatus: meta.productionStatus || "Unknown",
       changeStatus: "persisted",
