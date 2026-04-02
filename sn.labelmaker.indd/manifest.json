@@ -13,13 +13,60 @@
   },
   "entrypoints": [
     {
-      "type": "command",
-      "id": "showAlert",
-      "label": "Show alert"
+      "type": "panel",
+      "id": "labelTable",
+      "minimumSize": {
+        "width": 320,
+        "height": 220
+      },
+      "maximumSize": {
+        "width": 2000,
+        "height": 2000
+      },
+      "preferredDockedSize": {
+        "width": 520,
+        "height": 420
+      },
+      "preferredFloatingSize": {
+        "width": 720,
+        "height": 520
+      },
+      "label": {
+        "default": "Label Table"
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/dark@1x.png",
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium"
+          ]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/light@1x.png",
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "lightest",
+            "light"
+          ]
+        }
+      ]
     },
     {
       "type": "panel",
-      "id": "showPanel",
+      "id": "config",
       "minimumSize": {
         "width": 230,
         "height": 200
@@ -29,15 +76,15 @@
         "height": 2000
       },
       "preferredDockedSize": {
-        "width": 300,
-        "height": 300
+        "width": 320,
+        "height": 240
       },
       "preferredFloatingSize": {
-        "width": 300,
-        "height": 300
+        "width": 360,
+        "height": 280
       },
       "label": {
-        "default": "Label Maker"
+        "default": "Config"
       },
       "icons": [
         {

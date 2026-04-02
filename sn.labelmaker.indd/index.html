@@ -4,72 +4,50 @@
 <head>
 </head>
 <style>
-  .wrapper {
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .panelRoot {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    width: 100vw;
-    height: 100vh;
-    flex-direction: column;
     display: flex;
+    flex-direction: column;
+    gap: 8px;
     padding: 12px;
     box-sizing: border-box;
-    gap: 8px;
+    min-height: 0;
   }
   p {
     color: white;
     margin: 0;
-  }
-  .tabs {
-    display: flex;
-    gap: 8px;
-  }
-  .tabButton {
-    background: #2b2b2b;
-    color: white;
-    border: 1px solid #4a4a4a;
-    border-radius: 4px;
-    padding: 6px 10px;
-  }
-  .tabButton.active {
-    background: #4b6cb7;
-    border-color: #4b6cb7;
-  }
-  .tabPanel {
-    display: none;
   }
   .manageActions {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
   }
-  .manageField {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 180px;
-  }
-  .manageField label {
-    color: white;
-    font-size: 12px;
-  }
-  .manageField select {
-    background: #2b2b2b;
-    color: white;
-    border: 1px solid #4a4a4a;
-    border-radius: 4px;
-    padding: 6px 8px;
+  .labelsPanel {
+    min-height: 0;
   }
   .tableWrap {
     border: 1px solid #4a4a4a;
     border-radius: 4px;
-    overflow: hidden;
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
   }
   table {
-    width: 100%;
-    border-collapse: collapse;
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 12px;
     color: white;
   }
@@ -82,6 +60,7 @@
   th {
     background: #2b2b2b;
     font-weight: 600;
+    position: static;
   }
   .layoutStyleMatch {
     background: #1f5f3b;
@@ -93,60 +72,9 @@
     color: #c9c9c9;
     padding: 10px 8px;
   }
-  .createLabelButton[disabled] {
-    opacity: 0.45;
-    cursor: not-allowed;
-    background: #3a3a3a;
-    color: red;
-    border-color: #3affff;
-  }
 </style>
 
 <body>
-  <div class="wrapper">
-    <div class="tabs">
-      <button class="tabButton active" data-tab-target="manageTab">Manage</button>
-      <button class="tabButton" data-tab-target="labelsTab">Labels</button>
-    </div>
-    <div class="tabPanel" id="manageTab" data-tab-panel>
-      <div class="manageActions">
-        <button id="chooseJson">Choose JSON File</button>
-        <button id="reloadJson" style="display:none;">Reload JSON</button>
-      </div>
-      <p id="jsonStatus">Status: unlinked</p>
-      <p id="datasetStatus">Dataset: not loaded</p>
-      <p id="datasetSummary">Summary: none</p>
-      <p id="documentStateSummary">Document state: none</p>
-      <p id="actionStatus">Action: none</p>
-    </div>
-    <div class="tabPanel" id="labelsTab" data-tab-panel>
-      <div class="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Layout Style</th>
-              <th>Production Status</th>
-              <th>Change</th>
-              <th>Created</th>
-              <th>Updated</th>
-              <th>Current Spread</th>
-              <th>Master Spread</th>
-              <th>Create</th>
-              <th>Refresh</th>
-              <th>Delete</th>
-              <th>Find</th>
-            </tr>
-          </thead>
-          <tbody id="labelsTableBody">
-            <tr>
-              <td class="emptyState" colspan="12">No labels loaded.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
   <script src="main.js"></script>
 </body>
 </html>

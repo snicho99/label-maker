@@ -1,0 +1,487 @@
+{
+  "schemaVersion": "1.0.0",
+  "sourceWordFile": "Museum Labels Bulk Test.dotx",
+  "builtAt": "2026-04-02T09:30:00Z",
+  "labels": [
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000001",
+        "section": "Global Exchange",
+        "subSection": "Porcelain and Trade",
+        "layoutStyle": "objectLabel",
+        "labelName": "Blue-and-White Charger",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Blue & White Charger",
+        "metaText": "Jingdezhen, China, Qing dynasty, c. 1720, porcelain",
+        "body": "Export ceramics like this charger were made for international markets and reflect the movement of style, taste, and luxury goods.",
+        "creditLine": "Gift of the Hartwell Collection"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000002",
+        "section": "Gallery Orientation",
+        "subSection": "Entrance Interpretation",
+        "layoutStyle": "roomLabel",
+        "labelName": "Gallery Entrance Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Trade, Taste, and Exchange",
+        "metaText": "Gallery 4",
+        "body": "This gallery follows objects across oceans to reveal how collecting, commerce, and display shaped cultural encounter.",
+        "introNote": "Position at gallery threshold"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000003",
+        "section": "Colonial Life",
+        "subSection": "Domestic Rituals",
+        "layoutStyle": "groupLabel",
+        "labelName": "Silver Tableware Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Dining in the Colonial World",
+        "metaText": "Britain and Australia, 19th century, silver and silver plate",
+        "body": "These tablewares show how imported styles and industrial production reshaped domestic rituals across colonial households.",
+        "objectCount": 6
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000004",
+        "section": "Global Exchange",
+        "subSection": "Tea and Ceremony",
+        "layoutStyle": "objectLabel",
+        "labelName": "Tea Bowl with Landscape",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Tea Bowl with Landscape",
+        "metaText": "Japan, Edo period, 18th century, stoneware with glaze",
+        "body": "Used in tea practice, this bowl balances refinement and irregularity in ways that shaped collecting beyond Japan.",
+        "creditLine": "Purchased with the Friends Acquisition Fund"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000005",
+        "section": "Maps and Empire",
+        "subSection": "Survey and Control",
+        "layoutStyle": "roomLabel",
+        "labelName": "Mapping the Coastline",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Mapping the Coastline",
+        "metaText": "Interpretive panel",
+        "body": "Survey maps were tools of navigation, administration, and occupation, transforming land into measured territory.",
+        "designerNote": "Use wide-format master spread"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000006",
+        "section": "Colonial Life",
+        "subSection": "Work and Industry",
+        "layoutStyle": "groupLabel",
+        "labelName": "Workshop Tools Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Tools of Making",
+        "metaText": "Australia, 19th century, iron, timber, and steel",
+        "body": "These tools point to the skilled labour that supported settlement, transport, and everyday repair in colonial towns.",
+        "objectCount": 8
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000007",
+        "section": "Faith and Devotion",
+        "subSection": "Portable Belief",
+        "layoutStyle": "objectLabel",
+        "labelName": "Ivory Rosary Beads",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Ivory Rosary Beads",
+        "metaText": "Philippines, 18th century, ivory and cord",
+        "body": "Portable devotional objects travelled with people, carrying ritual practice across imperial and maritime networks.",
+        "creditLine": "Bequest of Maria Alvarez"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000008",
+        "section": "Natural History",
+        "subSection": "Collecting the Pacific",
+        "layoutStyle": "roomLabel",
+        "labelName": "Specimen Collecting Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Collecting the Pacific",
+        "metaText": "Gallery 6",
+        "body": "Specimens and samples moved through museums, laboratories, and private cabinets, linking curiosity to empire.",
+        "introNote": "Install near casework"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000009",
+        "section": "Natural History",
+        "subSection": "Shell and Specimen Display",
+        "layoutStyle": "groupLabel",
+        "labelName": "Marine Shells Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Shells and Classification",
+        "metaText": "Pacific region, 19th century, shell",
+        "body": "Displayed together, these shells reveal how collecting transformed natural objects into comparative scientific evidence.",
+        "objectCount": 12
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000010",
+        "section": "Textiles and Dress",
+        "subSection": "Printed Cotton",
+        "layoutStyle": "objectLabel",
+        "labelName": "Block-Printed Shawl",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Block-Printed Shawl",
+        "metaText": "India, 19th century, cotton",
+        "body": "Printed textiles circulated widely and connected regional making traditions to global consumer demand.",
+        "creditLine": "Museum purchase, 1987"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000011",
+        "section": "Textiles and Dress",
+        "subSection": "Fashion and Display",
+        "layoutStyle": "roomLabel",
+        "labelName": "Dress and Identity Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Dress and Identity",
+        "metaText": "Interpretive panel",
+        "body": "Clothing signalled aspiration, belonging, labour, and ceremony, often blending local and imported materials.",
+        "designerNote": "Allow larger body copy"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000012",
+        "section": "Textiles and Dress",
+        "subSection": "Adornment",
+        "layoutStyle": "groupLabel",
+        "labelName": "Jewellery Ensemble",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Adornment and Status",
+        "metaText": "Europe and Asia, 18th-19th century, mixed materials",
+        "body": "Grouped together, these ornaments reveal how adornment could communicate wealth, memory, and mobility.",
+        "objectCount": 5
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000013",
+        "section": "Transport and Travel",
+        "subSection": "Sea Routes",
+        "layoutStyle": "objectLabel",
+        "labelName": "Brass Navigational Compass",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Brass Navigational Compass",
+        "metaText": "Britain, early 19th century, brass and glass",
+        "body": "Precision instruments like this compass supported long-distance travel, military movement, and commercial shipping.",
+        "creditLine": "Gift of Captain R. H. Moore"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000014",
+        "section": "Transport and Travel",
+        "subSection": "Migration",
+        "layoutStyle": "roomLabel",
+        "labelName": "Migration Stories Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Migration and Memory",
+        "metaText": "Gallery 2",
+        "body": "Journeys by sea carried people, languages, and belongings that reshaped communities across the region.",
+        "introNote": "Pair with map projection"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000015",
+        "section": "Transport and Travel",
+        "subSection": "Travel Equipment",
+        "layoutStyle": "groupLabel",
+        "labelName": "Voyage Trunk Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Packing for the Voyage",
+        "metaText": "19th century, timber, brass, and leather",
+        "body": "These trunks, locks, and cases speak to the practical and emotional dimensions of long-distance travel.",
+        "objectCount": 4
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000016",
+        "section": "Science and Measurement",
+        "subSection": "Observation",
+        "layoutStyle": "objectLabel",
+        "labelName": "Surveyor's Theodolite",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Surveyor's Theodolite",
+        "metaText": "Britain, c. 1850, brass, glass, and lacquer",
+        "body": "Survey instruments enabled landscapes to be measured, mapped, and transformed into administrative knowledge.",
+        "creditLine": "Transferred from the Department of Public Works"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000017",
+        "section": "Science and Measurement",
+        "subSection": "Museum Knowledge",
+        "layoutStyle": "roomLabel",
+        "labelName": "Making Knowledge Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Making Knowledge Visible",
+        "metaText": "Interpretive panel",
+        "body": "Museums turned objects into evidence through classification, display, photography, and comparison.",
+        "designerNote": "Use upright orientation"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000018",
+        "section": "Science and Measurement",
+        "subSection": "Instruments",
+        "layoutStyle": "groupLabel",
+        "labelName": "Laboratory Instruments Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Instruments and Experiment",
+        "metaText": "Europe, 19th century, glass and metal",
+        "body": "Displayed together, these instruments show how scientific practice depended on precise tools and repeatable methods.",
+        "objectCount": 9
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000019",
+        "section": "Art and Reproduction",
+        "subSection": "Print Culture",
+        "layoutStyle": "objectLabel",
+        "labelName": "Lithographic Poster",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Lithographic Poster",
+        "metaText": "France, late 19th century, ink on paper",
+        "body": "Mass print technologies expanded the reach of images, advertisements, and political messages.",
+        "creditLine": "Purchased with print collection funds"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000020",
+        "section": "Art and Reproduction",
+        "subSection": "Photography",
+        "layoutStyle": "roomLabel",
+        "labelName": "Photography and Proof Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Photography and Proof",
+        "metaText": "Gallery 7",
+        "body": "Photography created new claims to truth while also shaping memory, tourism, and imperial record-keeping.",
+        "introNote": "Install opposite photo wall"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000021",
+        "section": "Art and Reproduction",
+        "subSection": "Studio Practice",
+        "layoutStyle": "groupLabel",
+        "labelName": "Photographic Studio Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Inside the Studio",
+        "metaText": "19th century, mixed media",
+        "body": "Cameras, backdrops, and mounts reveal the labour and staging behind studio portraiture.",
+        "objectCount": 7
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000022",
+        "section": "Conflict and Memory",
+        "subSection": "Campaign Equipment",
+        "layoutStyle": "objectLabel",
+        "labelName": "Officer's Campaign Chest",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Officer's Campaign Chest",
+        "metaText": "Britain, 19th century, timber, brass, and leather",
+        "body": "Portable furniture like this chest supported mobility while preserving domestic routines in unstable settings.",
+        "creditLine": "Donated by the Hill Family"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000023",
+        "section": "Conflict and Memory",
+        "subSection": "Remembering Service",
+        "layoutStyle": "roomLabel",
+        "labelName": "Remembering Service Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Remembering Service",
+        "metaText": "Interpretive panel",
+        "body": "Objects of service and remembrance often carry intimate stories that outlast official records.",
+        "designerNote": "Match memorial typography"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000024",
+        "section": "Conflict and Memory",
+        "subSection": "Commemoration",
+        "layoutStyle": "groupLabel",
+        "labelName": "Medals and Ribbons Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Tokens of Commemoration",
+        "metaText": "19th-20th century, metal and textile",
+        "body": "Grouped here, medals and ribbons show how honour, loss, and memory were made visible through objects.",
+        "objectCount": 10
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000025",
+        "section": "Food and Trade",
+        "subSection": "Sugar",
+        "layoutStyle": "objectLabel",
+        "labelName": "Sugar Loaf Mold",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Sugar Loaf Mold",
+        "metaText": "Caribbean, 19th century, ceramic",
+        "body": "Sugar production connected plantation labour, industrial processing, and global patterns of consumption.",
+        "creditLine": "Gift of the Maritime Collection"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000026",
+        "section": "Food and Trade",
+        "subSection": "Tea and Coffee",
+        "layoutStyle": "roomLabel",
+        "labelName": "Beverage Economies Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Tea, Coffee, and Empire",
+        "metaText": "Gallery 5",
+        "body": "Everyday drinks depended on plantations, shipping routes, industrial packaging, and changing rituals of hospitality.",
+        "introNote": "Position near serving wares"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000027",
+        "section": "Food and Trade",
+        "subSection": "Table Service",
+        "layoutStyle": "groupLabel",
+        "labelName": "Tea Service Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Serving Tea",
+        "metaText": "Britain and China, 18th-19th century, porcelain and silver",
+        "body": "These serving pieces show how tea drinking combined imported materials, domestic rituals, and social display.",
+        "objectCount": 11
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000028",
+        "section": "Communication",
+        "subSection": "Letter Writing",
+        "layoutStyle": "objectLabel",
+        "labelName": "Brass Traveling Inkstand",
+        "productionStatus": "draft"
+      },
+      "labelContent": {
+        "header": "Brass Traveling Inkstand",
+        "metaText": "Britain, 19th century, brass and glass",
+        "body": "Portable writing tools supported correspondence across distance, connecting homes, offices, and colonies.",
+        "creditLine": "Presented by the Clarkson Estate"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000029",
+        "section": "Communication",
+        "subSection": "News and Print",
+        "layoutStyle": "roomLabel",
+        "labelName": "Print Networks Panel",
+        "productionStatus": "edited"
+      },
+      "labelContent": {
+        "header": "Print Networks",
+        "metaText": "Interpretive panel",
+        "body": "Printed news linked readers across cities and colonies, creating shared debates as well as new forms of exclusion.",
+        "designerNote": "Use two-column body text"
+      }
+    },
+    {
+      "meta": {
+        "labelId": "10000000-0000-4000-8000-000000000030",
+        "section": "Communication",
+        "subSection": "Office Systems",
+        "layoutStyle": "groupLabel",
+        "labelName": "Office Equipment Group",
+        "productionStatus": "final"
+      },
+      "labelContent": {
+        "header": "Tools of Administration",
+        "metaText": "19th-20th century, mixed materials",
+        "body": "Stamps, seals, folders, and ledgers reveal the material culture of bureaucracy and record-keeping.",
+        "objectCount": 13
+      }
+    }
+  ]
+}

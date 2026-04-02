@@ -1,419 +1,520 @@
 const { entrypoints } = require("uxp");
-const { app } = require("indesign");
 const fileManager = require("./fileManager");
 const labelsTable = require("./labelsTable");
 const spreadCreation = require("./spreadCreation");
-let currentPanelNode = null;
+
+let configPanelNode = null;
+let labelTablePanelNode = null;
 let activeDocumentPollInterval = null;
 let lastActiveDocumentSignature = "no-document";
 
-entrypoints.setup({
+console.log("[labelmaker] main.js loaded");
 
-  commands: {
-    showAlert: () => showAlert()
-  },
+entrypoints.setup({
   panels: {
-    showPanel: {
-      async show({node} = {}) {
-        console.log("Panel shown, node:", node);
-        currentPanelNode = node || document;
-        initializeUi(currentPanelNode);
+    labelTable: {
+      async show(rootNode) {
+        console.log("[labelmaker] labelTable.show invoked", describePanelArg(rootNode));
+        labelTablePanelNode = resolvePanelRoot(rootNode);
+        console.log("[labelmaker] labelTable root resolved", describeNode(labelTablePanelNode));
+        ensurePanelContent(labelTablePanelNode, "labelTable");
         startActiveDocumentWatcher();
-        await updateStatus(currentPanelNode);
-      }
-    }
-  }
+        await updateLabelTablePanel(labelTablePanelNode);
+        console.log("[labelmaker] labelTable.show completed");
+      },
+    },
+    config: {
+      async show(rootNode) {
+        console.log("[labelmaker] config.show invoked", describePanelArg(rootNode));
+        configPanelNode = resolvePanelRoot(rootNode);
+        console.log("[labelmaker] config root resolved", describeNode(configPanelNode));
+        ensurePanelContent(configPanelNode, "config");
+        initializeConfigPanel(configPanelNode);
+        startActiveDocumentWatcher();
+        await updateConfigPanel(configPanelNode);
+        console.log("[labelmaker] config.show completed");
+      },
+    },
+  },
 });
 
-function showAlert() {
-    const dialog = app.dialogs.add();
-    const col = dialog.dialogColumns.add();
-    const colText = col.staticTexts.add();
-    colText.staticLabel = "Congratulations! You just executed your first command.";
-    dialog.canCancel = false;
-    dialog.show();
-    dialog.destroy();
-    return;
+function resolvePanelRoot(panelArg) {
+  console.log("[labelmaker] resolvePanelRoot called", describePanelArg(panelArg));
+  if (panelArg && typeof panelArg.querySelector === "function" && typeof panelArg.appendChild === "function") {
+    return panelArg;
+  }
+
+  if (panelArg && panelArg.node && typeof panelArg.node.querySelector === "function" && typeof panelArg.node.appendChild === "function") {
+    return panelArg.node;
+  }
+
+  throw new Error("UXP panel root node was not provided.");
 }
 
-function initializeUi(rootNode) {
-    initializeTabs(rootNode);
+function ensurePanelContent(rootNode, panelId) {
+  if (!rootNode) {
+    console.warn("[labelmaker] ensurePanelContent skipped because rootNode was missing", panelId);
+    return;
+  }
 
-    const chooseButton = rootNode.querySelector("#chooseJson");
-    if (chooseButton) {
-        chooseButton.onclick = () => {
-            handleChooseJsonClick(rootNode).catch((error) => {
-                console.error("Choose JSON click handler failed:", error);
-            });
-        };
-    } else {
-        console.warn("Choose JSON button not found during UI init");
+  if (rootNode.getAttribute("data-panel-template") === panelId && rootNode.firstElementChild) {
+    console.log("[labelmaker] panel content already present", panelId);
+    return;
+  }
+
+  const contentNode = panelId === "config"
+    ? createConfigPanelContent()
+    : createLabelTablePanelContent();
+
+  console.log("[labelmaker] mounting panel content", {
+    panelId,
+    root: describeNode(rootNode),
+    contentTagName: contentNode.tagName,
+  });
+
+  while (rootNode.firstChild) {
+    rootNode.removeChild(rootNode.firstChild);
+  }
+
+  rootNode.appendChild(contentNode);
+  rootNode.setAttribute("data-panel-template", panelId);
+  console.log("[labelmaker] panel content mounted", {
+    panelId,
+    childCount: rootNode.childElementCount,
+  });
+}
+
+function initializeConfigPanel(rootNode) {
+  if (!rootNode || rootNode.getAttribute("data-config-initialized") === "true") {
+    if (rootNode) {
+      console.log("[labelmaker] config panel already initialized");
     }
+    return;
+  }
 
-    const reloadButton = rootNode.querySelector("#reloadJson");
-    if (reloadButton) {
-        reloadButton.onclick = () => {
-            handleReloadJsonClick(rootNode).catch((error) => {
-                console.error("Reload JSON click handler failed:", error);
-            });
-        };
-    } else {
-        console.warn("Reload JSON button not found during UI init");
-    }
+  const chooseButton = rootNode.querySelector("#chooseJson");
+  if (chooseButton) {
+    chooseButton.onclick = () => {
+      handleChooseJsonClick(rootNode).catch((error) => {
+        console.error("Choose JSON click handler failed:", error);
+      });
+    };
+  }
 
+  const reloadButton = rootNode.querySelector("#reloadJson");
+  if (reloadButton) {
+    reloadButton.onclick = () => {
+      handleReloadJsonClick().catch((error) => {
+        console.error("Reload JSON click handler failed:", error);
+      });
+    };
+  }
+
+  rootNode.setAttribute("data-config-initialized", "true");
+  console.log("[labelmaker] config panel initialized");
 }
 
 function startActiveDocumentWatcher() {
-    if (activeDocumentPollInterval) {
-        return;
+  if (activeDocumentPollInterval) {
+    console.log("[labelmaker] active document watcher already running");
+    return;
+  }
+
+  lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
+  console.log("[labelmaker] starting active document watcher", {
+    signature: lastActiveDocumentSignature,
+  });
+  activeDocumentPollInterval = setInterval(() => {
+    const nextSignature = spreadCreation.getActiveDocumentSignature();
+    if (nextSignature === lastActiveDocumentSignature) {
+      return;
     }
 
-    lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
-    activeDocumentPollInterval = setInterval(() => {
-        const nextSignature = spreadCreation.getActiveDocumentSignature();
-        if (nextSignature === lastActiveDocumentSignature) {
-            return;
-        }
-
-        lastActiveDocumentSignature = nextSignature;
-        updateStatus(currentPanelNode).catch((error) => {
-            console.error("Active document refresh failed:", error);
-        });
-    }, 1000);
+    lastActiveDocumentSignature = nextSignature;
+    refreshVisiblePanels().catch((error) => {
+      console.error("Active document refresh failed:", error);
+    });
+  }, 1000);
 }
 
-function initializeTabs(rootNode) {
-    const tabButtons = rootNode.querySelectorAll("[data-tab-target]");
-    tabButtons.forEach((button) => {
-        button.onclick = () => {
-            const target = button.getAttribute("data-tab-target");
-            activateTab(rootNode, target);
-            if (target === "labelsTab") {
-                updateStatus(rootNode).catch((error) => {
-                    console.error("Labels tab refresh failed:", error);
-                });
-            }
-        };
-    });
+async function refreshVisiblePanels() {
+  console.log("[labelmaker] refreshing visible panels", {
+    hasConfigPanel: Boolean(configPanelNode),
+    hasLabelTablePanel: Boolean(labelTablePanelNode),
+  });
+  if (configPanelNode) {
+    await updateConfigPanel(configPanelNode);
+  }
 
-    activateTab(rootNode, "manageTab");
-}
-
-function activateTab(rootNode, targetId) {
-    const tabButtons = rootNode.querySelectorAll("[data-tab-target]");
-    const tabPanels = rootNode.querySelectorAll("[data-tab-panel]");
-
-    tabButtons.forEach((button) => {
-        const isActive = button.getAttribute("data-tab-target") === targetId;
-        button.classList.toggle("active", isActive);
-    });
-
-    tabPanels.forEach((panel) => {
-        const isActive = panel.id === targetId;
-        panel.style.display = isActive ? "block" : "none";
-    });
+  if (labelTablePanelNode) {
+    await updateLabelTablePanel(labelTablePanelNode);
+  }
 }
 
 function getElement(rootNode, selector) {
-    if (!rootNode || !rootNode.querySelector) {
-        return null;
-    }
+  if (!rootNode || !rootNode.querySelector) {
+    return null;
+  }
 
-    return rootNode.querySelector(selector);
+  return rootNode.querySelector(selector);
 }
 
 async function handleChooseJsonClick(rootNode) {
-    const statusEl = getElement(rootNode, "#jsonStatus");
-    const datasetStatusEl = getElement(rootNode, "#datasetStatus");
-    const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
+  const statusEl = getElement(rootNode, "#jsonStatus");
+  const datasetStatusEl = getElement(rootNode, "#datasetStatus");
+  const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
 
+  if (statusEl) {
+    statusEl.textContent = "Status: choosing JSON file...";
+  }
+  if (datasetStatusEl) {
+    datasetStatusEl.textContent = "Dataset: waiting for file selection";
+  }
+  if (datasetSummaryEl) {
+    datasetSummaryEl.textContent = "Summary: waiting for file selection";
+  }
+
+  try {
+    await fileManager.chooseJsonFile();
+  } catch (err) {
+    console.error("Choose JSON error:", err);
     if (statusEl) {
-        statusEl.textContent = "Status: choosing JSON file...";
+      statusEl.textContent = "Status: choose failed";
     }
     if (datasetStatusEl) {
-        datasetStatusEl.textContent = "Dataset: waiting for file selection";
+      datasetStatusEl.textContent = `Dataset: error (${err.message})`;
     }
     if (datasetSummaryEl) {
-        datasetSummaryEl.textContent = "Summary: waiting for file selection";
+      datasetSummaryEl.textContent = "Summary: load failed";
     }
-
-    try {
-        await fileManager.chooseJsonFile();
-    } catch (err) {
-        console.error("Choose JSON error:", err);
-        if (statusEl) {
-            statusEl.textContent = "Status: choose failed";
-        }
-        if (datasetStatusEl) {
-            datasetStatusEl.textContent = `Dataset: error (${err.message})`;
-        }
-        if (datasetSummaryEl) {
-            datasetSummaryEl.textContent = "Summary: load failed";
-        }
-    } finally {
-        await updateStatus(rootNode);
-    }
+  } finally {
+    await refreshVisiblePanels();
+  }
 }
 
-async function handleReloadJsonClick(rootNode) {
-    try {
-        await fileManager.reloadJson();
-    } catch (err) {
-        console.error("Reload JSON error:", err);
-    } finally {
-        await updateStatus(rootNode);
-    }
+async function handleReloadJsonClick() {
+  try {
+    await fileManager.reloadJson();
+  } catch (err) {
+    console.error("Reload JSON error:", err);
+  } finally {
+    await refreshVisiblePanels();
+  }
 }
 
-async function updateStatus(rootNode = currentPanelNode || document) {
-    const statusEl = getElement(rootNode, "#jsonStatus");
-    const datasetStatusEl = getElement(rootNode, "#datasetStatus");
-    const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
-    const documentStateSummaryEl = getElement(rootNode, "#documentStateSummary");
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-    const labelsTableBody = getElement(rootNode, "#labelsTableBody");
-    const reloadButton = getElement(rootNode, "#reloadJson");
+async function updateConfigPanel(rootNode) {
+  const statusEl = getElement(rootNode, "#jsonStatus");
+  const datasetStatusEl = getElement(rootNode, "#datasetStatus");
+  const datasetSummaryEl = getElement(rootNode, "#datasetSummary");
+  const documentStateSummaryEl = getElement(rootNode, "#documentStateSummary");
+  const actionStatusEl = getElement(rootNode, "#actionStatus");
+  const reloadButton = getElement(rootNode, "#reloadJson");
 
-    if (!statusEl) {
-        console.warn("Status element not found");
-        return;
+  if (!statusEl) {
+    console.warn("[labelmaker] updateConfigPanel aborted because #jsonStatus was not found", describeNode(rootNode));
+    return;
+  }
+
+  try {
+    console.log("[labelmaker] updateConfigPanel running");
+    lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
+    statusEl.textContent = fileManager.getStatusString();
+    if (datasetStatusEl) {
+      datasetStatusEl.textContent = fileManager.getDatasetStatusString();
+    }
+    if (datasetSummaryEl) {
+      datasetSummaryEl.textContent = fileManager.getDatasetSummaryString();
+    }
+    if (documentStateSummaryEl) {
+      documentStateSummaryEl.textContent = fileManager.getDocumentStateSummaryString();
+    }
+    if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
+      actionStatusEl.textContent = "Action: none";
     }
 
-    try {
-        lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
-        statusEl.textContent = fileManager.getStatusString();
-        if (datasetStatusEl) {
-            datasetStatusEl.textContent = fileManager.getDatasetStatusString();
-        }
-        if (datasetSummaryEl) {
-            datasetSummaryEl.textContent = fileManager.getDatasetSummaryString();
-        }
-        if (documentStateSummaryEl) {
-            documentStateSummaryEl.textContent = fileManager.getDocumentStateSummaryString();
-        }
-        if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
-            actionStatusEl.textContent = "Action: none";
-        }
-        const parentSpreadNames = spreadCreation.listParentSpreadNames();
-        fileManager.reconcileMasterSpreads(parentSpreadNames);
-        labelsTable.renderLabelsTable(labelsTableBody, fileManager.getDisplayLabels(), parentSpreadNames);
-        bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames);
-        bindCreateLabelHandlers(rootNode);
-        bindRefreshLabelHandlers(rootNode);
-        bindDeleteLabelHandlers(rootNode);
-        bindFindLabelHandlers(rootNode);
-        const token = fileManager.getLinkedJsonToken();
-
-        if (reloadButton) {
-            reloadButton.style.display = token ? "inline-block" : "none";
-        }
-    } catch (e) {
-        console.error("updateStatus failed:", e);
-        statusEl.textContent = "Status: error";
-        if (datasetStatusEl) {
-            datasetStatusEl.textContent = "Dataset: unavailable";
-        }
-        if (datasetSummaryEl) {
-            datasetSummaryEl.textContent = "Summary: unavailable";
-        }
-        if (documentStateSummaryEl) {
-            documentStateSummaryEl.textContent = "Document state: unavailable";
-        }
-        if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
-            actionStatusEl.textContent = "Action: unavailable";
-        }
-        labelsTable.renderEmptyLabelsTable(labelsTableBody, "Unable to display labels.");
-        if (reloadButton) {
-            reloadButton.style.display = "inline-block";
-        }
+    const token = fileManager.getLinkedJsonToken();
+    if (reloadButton) {
+      reloadButton.style.display = token ? "inline-block" : "none";
     }
+  } catch (error) {
+    console.error("updateConfigPanel failed:", error);
+    statusEl.textContent = "Status: error";
+    if (datasetStatusEl) {
+      datasetStatusEl.textContent = "Dataset: unavailable";
+    }
+    if (datasetSummaryEl) {
+      datasetSummaryEl.textContent = "Summary: unavailable";
+    }
+    if (documentStateSummaryEl) {
+      documentStateSummaryEl.textContent = "Document state: unavailable";
+    }
+    if (actionStatusEl && actionStatusEl.textContent.trim() === "") {
+      actionStatusEl.textContent = "Action: unavailable";
+    }
+    if (reloadButton) {
+      reloadButton.style.display = "inline-block";
+    }
+  }
+}
+
+async function updateLabelTablePanel(rootNode) {
+  const labelsTableBody = getElement(rootNode, "#labelsTableBody");
+  if (!labelsTableBody) {
+    console.warn("[labelmaker] updateLabelTablePanel aborted because #labelsTableBody was not found", describeNode(rootNode));
+    return;
+  }
+
+  try {
+    console.log("[labelmaker] updateLabelTablePanel running");
+    lastActiveDocumentSignature = spreadCreation.getActiveDocumentSignature();
+    const parentSpreadNames = spreadCreation.listParentSpreadNames();
+    console.log("[labelmaker] parent spreads enumerated", {
+      count: parentSpreadNames.length,
+      names: parentSpreadNames,
+    });
+    fileManager.reconcileMasterSpreads(parentSpreadNames);
+    const displayLabels = fileManager.getDisplayLabels();
+    console.log("[labelmaker] rendering labels table", {
+      labelCount: displayLabels.length,
+    });
+    labelsTable.renderLabelsTable(labelsTableBody, displayLabels, parentSpreadNames);
+    bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames);
+    bindCreateLabelHandlers(rootNode);
+    bindRefreshLabelHandlers(rootNode);
+    bindDeleteLabelHandlers(rootNode);
+    bindFindLabelHandlers(rootNode);
+  } catch (error) {
+    console.error("updateLabelTablePanel failed:", error);
+    labelsTable.renderEmptyLabelsTable(labelsTableBody, "Unable to display labels.");
+  }
 }
 
 function bindMasterSpreadSelectHandlers(rootNode, parentSpreadNames) {
-    if (!rootNode || !rootNode.querySelectorAll) {
-        return;
-    }
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
 
-    const selects = rootNode.querySelectorAll(".masterSpreadSelect");
-    selects.forEach((selectEl) => {
-        selectEl.onchange = () => {
-            handleMasterSpreadChange(rootNode, selectEl, parentSpreadNames).catch((error) => {
-                console.error("Master spread change failed:", error);
-            });
-        };
-    });
+  const selects = rootNode.querySelectorAll(".masterSpreadSelect");
+  selects.forEach((selectEl) => {
+    selectEl.onchange = () => {
+      handleMasterSpreadChange(selectEl, parentSpreadNames).catch((error) => {
+        console.error("Master spread change failed:", error);
+      });
+    };
+  });
 }
 
 function bindCreateLabelHandlers(rootNode) {
-    if (!rootNode || !rootNode.querySelectorAll) {
-        return;
-    }
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
 
-    const buttons = rootNode.querySelectorAll(".createLabelButton");
-    buttons.forEach((buttonEl) => {
-        buttonEl.onclick = () => {
-            handleCreateLabelClick(rootNode, buttonEl).catch((error) => {
-                console.error("Create label click failed:", error);
-            });
-        };
-    });
-}
-
-function bindDeleteLabelHandlers(rootNode) {
-    if (!rootNode || !rootNode.querySelectorAll) {
-        return;
-    }
-
-    const buttons = rootNode.querySelectorAll(".deleteLabelButton");
-    buttons.forEach((buttonEl) => {
-        buttonEl.onclick = () => {
-            handleDeleteLabelClick(rootNode, buttonEl).catch((error) => {
-                console.error("Delete label click failed:", error);
-            });
-        };
-    });
-}
-
-function bindFindLabelHandlers(rootNode) {
-    if (!rootNode || !rootNode.querySelectorAll) {
-        return;
-    }
-
-    const buttons = rootNode.querySelectorAll(".findLabelButton");
-    buttons.forEach((buttonEl) => {
-        buttonEl.onclick = () => {
-            handleFindLabelClick(rootNode, buttonEl).catch((error) => {
-                console.error("Find label click failed:", error);
-            });
-        };
-    });
-}
-
-async function handleCreateLabelClick(rootNode, buttonEl) {
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
-
-    if (!labelId) {
-        throw new Error("Missing label id for create action.");
-    }
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = "Action: creating label...";
-    }
-
-    const result = fileManager.createLabel(labelId);
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = `Action: created label on spread ${result.currentSpread} using ${result.masterSpread} and populated ${result.populatedFrameCount} text frame(s)`;
-    }
-
-    await updateStatus(rootNode);
+  const buttons = rootNode.querySelectorAll(".createLabelButton");
+  buttons.forEach((buttonEl) => {
+    buttonEl.onclick = () => {
+      handleCreateLabelClick(buttonEl).catch((error) => {
+        console.error("Create label click failed:", error);
+      });
+    };
+  });
 }
 
 function bindRefreshLabelHandlers(rootNode) {
-    if (!rootNode || !rootNode.querySelectorAll) {
-        return;
-    }
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
 
-    const buttons = rootNode.querySelectorAll(".refreshLabelButton");
-    buttons.forEach((buttonEl) => {
-        buttonEl.onclick = () => {
-            handleRefreshLabelClick(rootNode, buttonEl).catch((error) => {
-                console.error("Refresh label click failed:", error);
-            });
-        };
-    });
+  const buttons = rootNode.querySelectorAll(".refreshLabelButton");
+  buttons.forEach((buttonEl) => {
+    buttonEl.onclick = () => {
+      handleRefreshLabelClick(buttonEl).catch((error) => {
+        console.error("Refresh label click failed:", error);
+      });
+    };
+  });
 }
 
-async function handleDeleteLabelClick(rootNode, buttonEl) {
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+function bindDeleteLabelHandlers(rootNode) {
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
 
-    if (!labelId) {
-        throw new Error("Missing label id for delete action.");
-    }
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = "Action: deleting label spread...";
-    }
-
-    const result = fileManager.deleteLabel(labelId);
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = `Action: deleted spread ${result.deletedSpreadReference}`;
-    }
-
-    await updateStatus(rootNode);
+  const buttons = rootNode.querySelectorAll(".deleteLabelButton");
+  buttons.forEach((buttonEl) => {
+    buttonEl.onclick = () => {
+      handleDeleteLabelClick(buttonEl).catch((error) => {
+        console.error("Delete label click failed:", error);
+      });
+    };
+  });
 }
 
-async function handleRefreshLabelClick(rootNode, buttonEl) {
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+function bindFindLabelHandlers(rootNode) {
+  if (!rootNode || !rootNode.querySelectorAll) {
+    return;
+  }
 
-    if (!labelId) {
-        throw new Error("Missing label id for refresh action.");
-    }
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = "Action: refreshing bound text frames...";
-    }
-
-    const result = fileManager.refreshLabel(labelId);
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = `Action: refreshed ${result.refreshedFrameCount} bound text frame(s) on spread ${result.currentSpread}`;
-    }
-
-    await updateStatus(rootNode);
+  const buttons = rootNode.querySelectorAll(".findLabelButton");
+  buttons.forEach((buttonEl) => {
+    buttonEl.onclick = () => {
+      handleFindLabelClick(buttonEl).catch((error) => {
+        console.error("Find label click failed:", error);
+      });
+    };
+  });
 }
 
-async function handleFindLabelClick(rootNode, buttonEl) {
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-    const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+async function handleCreateLabelClick(buttonEl) {
+  const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+  if (!labelId) {
+    throw new Error("Missing label id for create action.");
+  }
 
-    if (!labelId) {
-        throw new Error("Missing label id for find action.");
-    }
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = "Action: locating label spread...";
-    }
-
-    const result = fileManager.findLabel(labelId);
-
-    if (actionStatusEl) {
-        actionStatusEl.textContent = `Action: focused spread ${result.spreadReference}`;
-    }
-
-    await updateStatus(rootNode);
+  setConfigActionStatus("Action: creating label...");
+  const result = fileManager.createLabel(labelId);
+  setConfigActionStatus(`Action: created label on spread ${result.currentSpread} using ${result.masterSpread} and populated ${result.populatedFrameCount} text frame(s)`);
+  await refreshVisiblePanels();
 }
 
-async function handleMasterSpreadChange(rootNode, selectEl, parentSpreadNames) {
-    const actionStatusEl = getElement(rootNode, "#actionStatus");
-    const labelId = selectEl ? selectEl.getAttribute("data-label-id") : "";
-    const selectedValue = selectEl ? selectEl.value : "";
+async function handleRefreshLabelClick(buttonEl) {
+  const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+  if (!labelId) {
+    throw new Error("Missing label id for refresh action.");
+  }
 
-    if (!labelId) {
-        throw new Error("Missing label id for master spread change.");
-    }
+  setConfigActionStatus("Action: refreshing bound text frames...");
+  const result = fileManager.refreshLabel(labelId);
+  setConfigActionStatus(`Action: refreshed ${result.refreshedFrameCount} bound text frame(s) on spread ${result.currentSpread}`);
+  await refreshVisiblePanels();
+}
 
-    if (actionStatusEl) {
-        actionStatusEl.textContent = "Action: saving master spread...";
-    }
+async function handleDeleteLabelClick(buttonEl) {
+  const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+  if (!labelId) {
+    throw new Error("Missing label id for delete action.");
+  }
 
-    const availableNames = Array.isArray(parentSpreadNames) ? parentSpreadNames : [];
-    const persistedValue = availableNames.includes(selectedValue) ? selectedValue : null;
-    const savedValue = fileManager.setLabelMasterSpread(labelId, persistedValue);
+  setConfigActionStatus("Action: deleting label spread...");
+  const result = fileManager.deleteLabel(labelId);
+  setConfigActionStatus(`Action: deleted spread ${result.deletedSpreadReference}`);
+  await refreshVisiblePanels();
+}
 
-    if (selectEl) {
-        selectEl.value = savedValue || "";
-    }
+async function handleFindLabelClick(buttonEl) {
+  const labelId = buttonEl ? buttonEl.getAttribute("data-label-id") : "";
+  if (!labelId) {
+    throw new Error("Missing label id for find action.");
+  }
 
-    if (actionStatusEl) {
-        actionStatusEl.textContent = savedValue
-            ? `Action: saved master spread ${savedValue}`
-            : "Action: cleared master spread";
-    }
+  setConfigActionStatus("Action: locating label spread...");
+  const result = fileManager.findLabel(labelId);
+  setConfigActionStatus(`Action: focused spread ${result.spreadReference}`);
+  await refreshVisiblePanels();
+}
 
-    await updateStatus(rootNode);
+async function handleMasterSpreadChange(selectEl, parentSpreadNames) {
+  const labelId = selectEl ? selectEl.getAttribute("data-label-id") : "";
+  const selectedValue = selectEl ? selectEl.value : "";
+
+  if (!labelId) {
+    throw new Error("Missing label id for master spread change.");
+  }
+
+  setConfigActionStatus("Action: saving master spread...");
+  const availableNames = Array.isArray(parentSpreadNames) ? parentSpreadNames : [];
+  const persistedValue = availableNames.includes(selectedValue) ? selectedValue : null;
+  const savedValue = fileManager.setLabelMasterSpread(labelId, persistedValue);
+
+  if (selectEl) {
+    selectEl.value = savedValue || "";
+  }
+
+  setConfigActionStatus(savedValue
+    ? `Action: saved master spread ${savedValue}`
+    : "Action: cleared master spread");
+  await refreshVisiblePanels();
+}
+
+function setConfigActionStatus(message) {
+  const actionStatusEl = getElement(configPanelNode, "#actionStatus");
+  if (actionStatusEl) {
+    actionStatusEl.textContent = message;
+  }
+}
+
+function createConfigPanelContent() {
+  const panel = document.createElement("div");
+  panel.className = "panelRoot";
+  panel.innerHTML = `
+    <div class="manageActions">
+      <button id="chooseJson">Choose JSON File</button>
+      <button id="reloadJson" style="display:none;">Reload JSON</button>
+    </div>
+    <p id="jsonStatus">Status: unlinked</p>
+    <p id="datasetStatus">Dataset: not loaded</p>
+    <p id="datasetSummary">Summary: none</p>
+    <p id="documentStateSummary">Document state: none</p>
+    <p id="actionStatus">Action: none</p>
+  `;
+  return panel;
+}
+
+function createLabelTablePanelContent() {
+  const panel = document.createElement("div");
+  panel.className = "panelRoot labelsPanel";
+  panel.innerHTML = `
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Layout Style</th>
+            <th>Production Status</th>
+            <th>Change</th>
+            <th>Created</th>
+            <th>Updated</th>
+            <th>Current Spread</th>
+            <th>Master Spread</th>
+            <th>Create</th>
+            <th>Refresh</th>
+            <th>Delete</th>
+            <th>Find</th>
+          </tr>
+        </thead>
+        <tbody id="labelsTableBody">
+          <tr>
+            <td class="emptyState" colspan="12">No labels loaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+  return panel;
+}
+
+function describePanelArg(panelArg) {
+  if (!panelArg) {
+    return { kind: "missing" };
+  }
+
+  return {
+    kind: typeof panelArg,
+    hasNodeProperty: Boolean(panelArg.node),
+    tagName: panelArg.tagName || null,
+    nodeTagName: panelArg.node && panelArg.node.tagName ? panelArg.node.tagName : null,
+    hasAppendChild: typeof panelArg.appendChild === "function",
+    hasQuerySelector: typeof panelArg.querySelector === "function",
+  };
+}
+
+function describeNode(node) {
+  if (!node) {
+    return { kind: "missing" };
+  }
+
+  return {
+    tagName: node.tagName || null,
+    childElementCount: typeof node.childElementCount === "number" ? node.childElementCount : null,
+    templateMarker: typeof node.getAttribute === "function" ? node.getAttribute("data-panel-template") : null,
+  };
 }
